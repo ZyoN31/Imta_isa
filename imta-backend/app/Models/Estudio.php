@@ -9,7 +9,7 @@ class Estudio extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['titulo', 'descripcion', 'categoria', 'foto', 'investigador_id'];
+    protected $fillable = ['titulo', 'descripcion', 'categoria', 'foto', 'documento', 'investigador_id'];
 
     public function investigador()
     {

@@ -1,39 +1,161 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import InstitutionLayout from '../../components/layout/InstitutionLayout';
+import {
+  fetchEstudios,
+  fetchInvestigadores,
+  fetchNoticias,
+  formatApiError,
+  resolveBackendUrl,
+} from '../../services/api';
+
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=1600&q=80';
+
+function truncateText(value, maxLength = 170) {
+  if (!value) {
+    return '';
+  }
+
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength - 1)}…`;
+}
+
+function formatDate(value) {
+  if (!value) {
+    return 'Fecha no disponible';
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Fecha no disponible' : date.toLocaleDateString('es-MX');
+}
 
 export default function Inicio({ user, onLogout }) {
-  const publicacionesDestacadas = [
-    { id: 1, tipo: 'Estudio', titulo: 'Análisis de Flujo en Canales Abiertos', autor: 'Dr. Roberto Gómez', fecha: '2026-07-10' },
-    { id: 2, tipo: 'Noticia', titulo: 'Renovación de Equipamiento en el Laboratorio Enzo Levi', autor: 'Mtra. Sofía Pérez', fecha: '2026-07-14' },
-  ];
+  const [estudios, setEstudios] = useState([]);
+  const [noticias, setNoticias] = useState([]);
+  const [investigadores, setInvestigadores] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    Promise.all([fetchEstudios(), fetchNoticias(), fetchInvestigadores()])
+      .then(([estudiosData, noticiasData, investigadoresData]) => {
+        if (!mounted) {
+          return;
+        }
+
+        setEstudios(Array.isArray(estudiosData) ? estudiosData : []);
+        setNoticias(Array.isArray(noticiasData) ? noticiasData : []);
+        setInvestigadores(Array.isArray(investigadoresData) ? investigadoresData : []);
+      })
+      .catch((requestError) => {
+        if (!mounted) {
+          return;
+        }
+
+        setError(formatApiError(requestError));
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const estudiosDestacados = useMemo(() => estudios.slice(0, 3), [estudios]);
+  const noticiasRecientes = useMemo(() => noticias.slice(0, 3), [noticias]);
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-64px)] bg-white">
-      {/* Hero / Banner Principal */}
-      <section className="bg-grisCustom p-12 text-center border-b border-gray-200">
-        <h2 className="text-3xl font-black text-cereza mb-4">Repositorio Digital de Conocimiento Hidráulico</h2>
-        <p className="text-gray-700 max-w-2xl mx-auto">
-          Espacio dedicado a la divulgación técnica, artículos científicos y noticias relevantes desarrolladas en el Laboratorio Enzo Levi.
-        </p>
-      </section>
-
-      {/* Listado General */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-        {publicacionesDestacadas.map((pub) => (
-          <div key={pub.id} className="border border-grisCustom rounded-lg p-5 shadow-sm hover:shadow-md flex flex-col justify-between bg-white">
-            <div>
-              <span className={`inline-block px-3 py-1 rounded text-xs font-bold mb-3 ${pub.tipo === 'Estudio' ? 'bg-boio text-white' : 'bg-ramei text-cereza'}`}>
-                {pub.tipo}
-              </span>
-              <h3 className="text-xl font-bold text-cereza mb-2">{pub.titulo}</h3>
-              <p className="text-sm text-gray-600">Por: {pub.autor}</p>
-            </div>
-            <div className="mt-4 pt-4 border-t border-grisCustom flex justify-between items-center">
-              <span className="text-xs text-gray-400">{pub.fecha}</span>
-              <Link to={`/estudio/${pub.id}`} className="text-boio font-bold text-sm hover:underline">Ver detalles →</Link>
+    <InstitutionLayout user={user} onLogout={onLogout}>
+      <section className="hero-panel">
+        <div className="hero-panel__grid">
+          <div className="hero-panel__copy">
+            <span className="eyebrow">Laboratorio Enzo Levi</span>
+            <h2 className="page-title">Un poco del Laboratorio Enzo Levi</h2>
+            <p className="page-intro">
+              Plataforma digital para divulgar estudios científicos, noticias técnicas y el trabajo del equipo de investigación del IMTA.
+            </p>
+            <div className="hero-stats">
+              <article className="hero-stat">
+                <strong>{estudios.length}</strong>
+                <span>Estudios publicados</span>
+              </article>
+              <article className="hero-stat">
+                <strong>{noticias.length}</strong>
+                <span>Noticias técnicas</span>
+              </article>
+              <article className="hero-stat">
+                <strong>{investigadores.length}</strong>
+                <span>Investigadores activos</span>
+              </article>
             </div>
           </div>
+
+          <div className="hero-panel__media">
+            <img src={HERO_IMAGE} alt="Instalaciones del laboratorio de hidráulica" />
+            <div className="hero-panel__badge">
+              <strong>Repositorio administrativo y técnico</strong>
+              <p>Consulta publicaciones y participa con comentarios.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {error ? <p className="status-box">{error}</p> : null}
+
+      <section className="section-head">
+        <div>
+          <h2>Estudios destacados</h2>
+          <p>Resultados recientes de modelos físicos y evaluaciones hidráulicas.</p>
+        </div>
+        <Link className="solid-link" to="/estudios">Ver todos</Link>
+      </section>
+
+      <div className="cards-grid">
+        {estudiosDestacados.map((estudio) => (
+          <article key={estudio.id} className="feature-card">
+            <div className="feature-card__cover">
+              <img src={resolveBackendUrl(estudio.foto) || HERO_IMAGE} alt={estudio.titulo} />
+            </div>
+            <div className="feature-card__body">
+              <span className="tag">{estudio.categoria || 'Estudio'}</span>
+              <h3>{estudio.titulo}</h3>
+              <p>{truncateText(estudio.descripcion)}</p>
+              <div className="meta-row">
+                <Link className="ghost-link" to={`/estudios/${estudio.id}`}>Leer más</Link>
+              </div>
+            </div>
+          </article>
         ))}
-      </main>
-    </div>
+      </div>
+
+      <section className="section-head">
+        <div>
+          <h2>Noticias recientes</h2>
+          <p>Actualizaciones institucionales y avances del laboratorio.</p>
+        </div>
+        <Link className="solid-link" to="/noticias">Ir a noticias</Link>
+      </section>
+
+      <div className="cards-grid">
+        {noticiasRecientes.map((noticia) => (
+          <article key={noticia.id} className="story-card">
+            <div className="story-card__cover">
+              <img src={resolveBackendUrl(noticia.foto) || HERO_IMAGE} alt={noticia.titulo} />
+            </div>
+            <div className="story-card__body">
+              <span className="pill">{formatDate(noticia.fecha || noticia.created_at)}</span>
+              <h3>{noticia.titulo}</h3>
+              <p>{truncateText(noticia.contenido)}</p>
+              <div className="meta-row">
+                <Link className="ghost-link" to={`/noticias/${noticia.id}`}>Ver detalle</Link>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </InstitutionLayout>
   );
 }

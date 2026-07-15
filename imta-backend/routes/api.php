@@ -35,6 +35,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role:administrador')->group(function () {
+        Route::get('/admin/consultores', [AuthController::class, 'consultores']);
+        Route::get('/admin/comentarios', [ComentarioController::class, 'index']);
+
         Route::post('/investigadores', [InvestigadorController::class, 'store']);
         Route::put('/investigadores/{investigador}', [InvestigadorController::class, 'update']);
         Route::delete('/investigadores/{investigador}', [InvestigadorController::class, 'destroy']);

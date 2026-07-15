@@ -73,4 +73,16 @@ class AuthController extends Controller
     {
         return response()->json($request->user()->load('investigador'), 200);
     }
+
+    public function consultores(): JsonResponse
+    {
+        return response()->json(
+            User::query()
+                ->where('rol', 'consultor')
+                ->orderBy('nombre')
+                ->orderBy('apellido_paterno')
+                ->get(),
+            200
+        );
+    }
 }

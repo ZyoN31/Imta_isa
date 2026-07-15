@@ -1,35 +1,128 @@
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import AuthLayout from '../../components/layout/AuthLayout';
+import { formatApiError, registerUser } from '../../services/api';
 
-export default function RegistroConsultores() {
+export default function RegistroConsultores({ user, onAuth }) {
   const navigate = useNavigate();
-  
-  const handleRegister = (e) => {
-    e.preventDefault();
-    alert('¡Cuenta de consultor creada con éxito!');
-    navigate('/login');
+  const [form, setForm] = useState({
+    nombre: '',
+    apellido_paterno: '',
+    apellido_materno: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+  });
+  const [status, setStatus] = useState({ loading: false, error: '' });
+
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setStatus({ loading: true, error: '' });
+
+    try {
+      const payload = await registerUser(form);
+      onAuth(payload);
+      navigate('/', { replace: true });
+    } catch (requestError) {
+      setStatus({ loading: false, error: formatApiError(requestError) });
+      return;
+    }
+
+    setStatus({ loading: false, error: '' });
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-white flex items-center justify-center p-4">
-      <form onSubmit={handleRegister} className="bg-white border border-grisCustom p-8 rounded-lg shadow-lg w-full max-w-lg space-y-4">
-        <h2 className="text-2xl font-black text-cereza">Registro de Consultor Externo</h2>
+    <AuthLayout
+      title="Registro de consultores"
+      subtitle="Crea tu cuenta para consultar estudios, noticias y participar en la sección de comentarios."
+      topMessage="Alta de usuarios consultores externos"
+      footerText="¿Ya tienes cuenta?"
+      footerLink="/login"
+      footerLinkLabel="Inicia sesión"
+    >
+      {status.error ? <p className="status-box">{status.error}</p> : null}
+
+      <form className="form-grid" onSubmit={handleSubmit}>
+        <div className="form-grid form-grid--two">
+          <div>
+            <label htmlFor="register-name">Nombre</label>
+            <input
+              id="register-name"
+              className="form-input"
+              value={form.nombre}
+              onChange={(event) => setForm((previous) => ({ ...previous, nombre: event.target.value }))}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="register-lastname">Apellido paterno</label>
+            <input
+              id="register-lastname"
+              className="form-input"
+              value={form.apellido_paterno}
+              onChange={(event) => setForm((previous) => ({ ...previous, apellido_paterno: event.target.value }))}
+              required
+            />
+          </div>
+        </div>
+
         <div>
-          <label className="block text-sm font-bold text-cereza mb-1">Nombre Completo *</label>
-          <input type="text" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-boio focus:outline-none" required />
+          <label htmlFor="register-second-lastname">Apellido materno (opcional)</label>
+          <input
+            id="register-second-lastname"
+            className="form-input"
+            value={form.apellido_materno}
+            onChange={(event) => setForm((previous) => ({ ...previous, apellido_materno: event.target.value }))}
+          />
         </div>
+
         <div>
-          <label className="block text-sm font-bold text-cereza mb-1">Correo Electrónico *</label>
-          <input type="email" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-boio focus:outline-none" required />
+          <label htmlFor="register-email">Correo electrónico</label>
+          <input
+            id="register-email"
+            type="email"
+            className="form-input"
+            value={form.email}
+            onChange={(event) => setForm((previous) => ({ ...previous, email: event.target.value }))}
+            required
+          />
         </div>
-        <div>
-          <label className="block text-sm font-bold text-cereza mb-1">Contraseña *</label>
-          <input type="password" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-boio focus:outline-none" required />
+
+        <div className="form-grid form-grid--two">
+          <div>
+            <label htmlFor="register-password">Contraseña</label>
+            <input
+              id="register-password"
+              type="password"
+              className="form-input"
+              value={form.password}
+              onChange={(event) => setForm((previous) => ({ ...previous, password: event.target.value }))}
+              required
+              minLength={8}
+            />
+          </div>
+          <div>
+            <label htmlFor="register-password-confirmation">Confirmar contraseña</label>
+            <input
+              id="register-password-confirmation"
+              type="password"
+              className="form-input"
+              value={form.password_confirmation}
+              onChange={(event) => setForm((previous) => ({ ...previous, password_confirmation: event.target.value }))}
+              required
+              minLength={8}
+            />
+          </div>
         </div>
-        <button type="submit" className="w-full bg-cereza text-white font-bold py-2 rounded hover:bg-boio transition-colors">Finalizar Registro</button>
-        <div className="text-center text-sm pt-2">
-          <Link to="/login" className="text-boio font-bold hover:underline">¿Ya tienes cuenta? Inicia sesión</Link>
-        </div>
+
+        <button type="submit" className="primary-button" disabled={status.loading}>
+          {status.loading ? 'Registrando...' : 'Crear cuenta'}
+        </button>
       </form>
-    </div>
+    </AuthLayout>
   );
 }

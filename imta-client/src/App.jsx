@@ -1,58 +1,106 @@
-import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-
-// Importamos los componentes modulares de las páginas
-import Inicio from './pages/Public/Inicio';
-import Login from './pages/Public/Login';
-import RegistroConsultores from './pages/Public/RegistroConsultores';
+import { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+import { clearSession, fetchCurrentUser, getStoredToken, getStoredUser, setSession } from './services/api';
+import './App.css';
+import AdminDashboard from './pages/Admin/Dashboard';
+import AuthLogin from './pages/Public/Login';
+import AuthRegister from './pages/Public/RegistroConsultores';
 import DetalleEstudio from './pages/Public/DetalleEstudio';
+import DetalleInvestigador from './pages/Public/DetalleInvestigador';
+import DetalleNoticia from './pages/Public/DetalleNoticia';
+import Estudios from './pages/Public/Estudios';
+import Inicio from './pages/Public/Inicio';
+import Investigadores from './pages/Public/Investigadores';
+import Noticias from './pages/Public/Noticias';
+import ResearcherDashboard from './pages/Researcher/Dashboard';
+
+function RequireRole({ user, roles, children }) {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (roles.length > 0 && !roles.includes(user.rol)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const handleLogout = () => setUser(null);
+  const token = getStoredToken();
+  const [user, setUser] = useState(() => getStoredUser());
+  const [bootstrapping, setBootstrapping] = useState(() => Boolean(token));
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    fetchCurrentUser()
+      .then((currentUser) => {
+        localStorage.setItem('imta_user', JSON.stringify(currentUser));
+        setUser(currentUser);
+      })
+      .catch(() => {
+        clearSession();
+        setUser(null);
+      })
+      .finally(() => {
+        setBootstrapping(false);
+      });
+  }, [token]);
+
+  const handleAuth = (payload) => {
+    setSession(payload);
+    setUser(payload.user);
+  };
+
+  const handleLogout = async () => {
+    clearSession();
+    setUser(null);
+  };
+
+  if (bootstrapping) {
+    return (
+      <div className="app-loading-screen">
+        <div className="app-loading-card">
+          <div className="app-loading-orb" />
+          <p>Cargando sistema administrativo...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col">
-        {/* NAVBAR INSTITUCIONAL FIJO (Sale en todas las páginas) */}
-        <header className="bg-cereza text-white p-4 shadow-md flex justify-between items-center h-16">
-          <div className="flex items-center space-x-2">
-            <h1 className="text-xl font-bold tracking-wide">IMTA</h1>
-            <span className="text-xs text-ramei hidden sm:inline">| Lab. Enzo Levi</span>
-          </div>
-          <nav className="flex space-x-4 items-center">
-            <Link to="/" className="hover:text-ramei text-sm transition-colors">Inicio</Link>
-            
-            {!user ? (
-              <>
-                <Link to="/login" className="bg-boio px-3 py-1.5 rounded text-sm">Iniciar Sesión</Link>
-                <Link to="/registro" className="border border-white px-3 py-1.5 rounded text-sm hover:bg-white hover:text-cereza">Registrarse</Link>
-              </>
-            ) : (
-              <div className="flex items-center space-x-3">
-                <span className="text-xs text-ramei font-medium">Hola, {user.name}</span>
-                {user.role === 'admin' && <Link to="/admin" className="text-xs bg-boio px-2 py-1 rounded">Admin</Link>}
-                {user.role === 'investigador' && <Link to="/investigador" className="text-xs bg-gray-700 px-2 py-1 rounded">Investigador</Link>}
-                <button onClick={handleLogout} className="bg-grisCustom text-cereza px-2 py-1 text-xs rounded font-bold">Salir</button>
-              </div>
-            )}
-          </nav>
-        </header>
-
-        {/* CONTENEDOR DE RUTAS DINÁMICAS */}
-        <div className="flex-1">
-          <Routes>
-            <Route path="/" element={<Inicio user={user} onLogout={handleLogout} />} />
-            <Route path="/login" element={<Login onLoginSuccess={setUser} />} />
-            <Route path="/registro" element={<RegistroConsultores />} />
-            <Route path="/estudio/:id" element={<DetalleEstudio user={user} />} />
-            
-            {/* Próximos entornos de los siguientes mockups */}
-            <Route path="/admin" element={<div className="p-6"><h2>Panel de Administración</h2></div>} />
-            <Route path="/investigador" element={<div className="p-6"><h2>Panel de Investigador</h2></div>} />
-          </Routes>
-        </div>
-      </div>
+      <Routes>
+        <Route path="/" element={<Inicio user={user} onLogout={handleLogout} />} />
+        <Route path="/login" element={<AuthLogin user={user} onAuth={handleAuth} />} />
+        <Route path="/registro" element={<AuthRegister user={user} onAuth={handleAuth} />} />
+        <Route path="/estudios" element={<Estudios user={user} onLogout={handleLogout} />} />
+        <Route path="/estudios/:id" element={<DetalleEstudio user={user} onLogout={handleLogout} />} />
+        <Route path="/investigadores" element={<Investigadores user={user} onLogout={handleLogout} />} />
+        <Route path="/investigadores/:id" element={<DetalleInvestigador user={user} onLogout={handleLogout} />} />
+        <Route path="/noticias" element={<Noticias user={user} onLogout={handleLogout} />} />
+        <Route path="/noticias/:id" element={<DetalleNoticia user={user} onLogout={handleLogout} />} />
+        <Route
+          path="/admin"
+          element={(
+            <RequireRole user={user} roles={['administrador']}>
+              <AdminDashboard user={user} onLogout={handleLogout} />
+            </RequireRole>
+          )}
+        />
+        <Route
+          path="/investigador"
+          element={(
+            <RequireRole user={user} roles={['investigador', 'administrador']}>
+              <ResearcherDashboard user={user} onLogout={handleLogout} />
+            </RequireRole>
+          )}
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }

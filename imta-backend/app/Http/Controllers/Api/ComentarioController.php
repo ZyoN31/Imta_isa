@@ -9,6 +9,17 @@ use Illuminate\Http\Request;
 
 class ComentarioController extends Controller
 {
+    public function index(): JsonResponse
+    {
+        return response()->json(
+            Comentario::with(['user', 'estudio', 'noticia'])
+                ->latest('fecha')
+                ->latest()
+                ->get(),
+            200
+        );
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([

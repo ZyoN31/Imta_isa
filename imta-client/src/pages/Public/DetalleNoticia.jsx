@@ -4,13 +4,13 @@ import InstitutionLayout from '../../components/layout/InstitutionLayout';
 import {
   createComentario,
   deleteComentario,
-  fetchEstudio,
+  fetchNoticia,
   formatApiError,
   getDisplayName,
   resolveBackendUrl,
 } from '../../services/api';
 
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1469285994282-454ceb49e63a?auto=format&fit=crop&w=1400&q=80';
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585241936939-be4099591252?auto=format&fit=crop&w=1400&q=80';
 
 function formatDate(value) {
   if (!value) {
@@ -21,9 +21,9 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? 'Fecha no disponible' : date.toLocaleDateString('es-MX');
 }
 
-export default function DetalleEstudio({ user, onLogout }) {
+export default function DetalleNoticia({ user, onLogout }) {
   const { id } = useParams();
-  const [estudio, setEstudio] = useState(null);
+  const [noticia, setNoticia] = useState(null);
   const [nuevoComentario, setNuevoComentario] = useState('');
   const [status, setStatus] = useState({ loading: true, error: '', success: '' });
   const [sendingComment, setSendingComment] = useState(false);
@@ -31,13 +31,13 @@ export default function DetalleEstudio({ user, onLogout }) {
   useEffect(() => {
     let mounted = true;
 
-    fetchEstudio(id)
+    fetchNoticia(id)
       .then((data) => {
         if (!mounted) {
           return;
         }
 
-        setEstudio(data);
+        setNoticia(data);
         setStatus({ loading: false, error: '', success: '' });
       })
       .catch((requestError) => {
@@ -54,12 +54,12 @@ export default function DetalleEstudio({ user, onLogout }) {
   }, [id]);
 
   const comentarios = useMemo(() => {
-    if (!estudio?.comentarios) {
+    if (!noticia?.comentarios) {
       return [];
     }
 
-    return [...estudio.comentarios].sort((a, b) => new Date(b.fecha || b.created_at || 0) - new Date(a.fecha || a.created_at || 0));
-  }, [estudio]);
+    return [...noticia.comentarios].sort((a, b) => new Date(b.fecha || b.created_at || 0) - new Date(a.fecha || a.created_at || 0));
+  }, [noticia]);
 
   const handleSubmitComment = async (event) => {
     event.preventDefault();
@@ -73,8 +73,8 @@ export default function DetalleEstudio({ user, onLogout }) {
     setStatus((previous) => ({ ...previous, error: '', success: '' }));
 
     try {
-      const response = await createComentario({ contenido: nuevoComentario.trim(), estudio_id: Number(id) });
-      setEstudio((previous) => ({
+      const response = await createComentario({ contenido: nuevoComentario.trim(), noticia_id: Number(id) });
+      setNoticia((previous) => ({
         ...previous,
         comentarios: [response.data, ...(previous?.comentarios ?? [])],
       }));
@@ -92,7 +92,7 @@ export default function DetalleEstudio({ user, onLogout }) {
 
     try {
       const response = await deleteComentario(commentId);
-      setEstudio((previous) => ({
+      setNoticia((previous) => ({
         ...previous,
         comentarios: (previous?.comentarios ?? []).filter((comment) => comment.id !== commentId),
       }));
@@ -106,44 +106,32 @@ export default function DetalleEstudio({ user, onLogout }) {
 
   return (
     <InstitutionLayout user={user} onLogout={onLogout}>
-      {status.loading ? <p className="status-box">Cargando estudio...</p> : null}
+      {status.loading ? <p className="status-box">Cargando noticia...</p> : null}
       {status.error ? <p className="status-box">{status.error}</p> : null}
       {status.success ? <p className="status-box">{status.success}</p> : null}
 
-      {!status.loading && estudio ? (
+      {!status.loading && noticia ? (
         <article className="detail-panel">
           <div className="breadcrumb">
             <Link to="/">Inicio</Link>
             <span>/</span>
-            <Link to="/estudios">Estudios</Link>
+            <Link to="/noticias">Noticias</Link>
             <span>/</span>
             <span>Detalle</span>
           </div>
 
-          <h1 className="detail-title">{estudio.titulo}</h1>
+          <h1 className="detail-title">{noticia.titulo}</h1>
           <div className="meta-row">
-            <span className="badge">{estudio.categoria || 'Estudio'}</span>
-            <span className="pill">{getDisplayName(estudio.investigador?.user)}</span>
+            <span className="badge">Noticia institucional</span>
+            <span className="pill">{formatDate(noticia.fecha || noticia.created_at)}</span>
+            <span className="pill">{getDisplayName(noticia.investigador?.user)}</span>
           </div>
 
           <div className="detail-cover">
-            <img src={resolveBackendUrl(estudio.foto) || FALLBACK_IMAGE} alt={estudio.titulo} />
+            <img src={resolveBackendUrl(noticia.foto) || FALLBACK_IMAGE} alt={noticia.titulo} />
           </div>
 
-          <p className="detail-text">{estudio.descripcion}</p>
-
-          {estudio.documento ? (
-            <div className="meta-row">
-              <a
-                className="solid-link"
-                href={resolveBackendUrl(estudio.documento)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Ver documento adjunto
-              </a>
-            </div>
-          ) : null}
+          <p className="detail-text">{noticia.contenido}</p>
 
           <section className="comment-section">
             <h2>Comentarios ({comentarios.length})</h2>
@@ -168,11 +156,11 @@ export default function DetalleEstudio({ user, onLogout }) {
 
             {user ? (
               <form className="comment-form form-grid" onSubmit={handleSubmitComment}>
-                <label htmlFor="estudio-comment">Agregar comentario</label>
+                <label htmlFor="noticia-comment">Agregar comentario</label>
                 <textarea
-                  id="estudio-comment"
+                  id="noticia-comment"
                   className="form-textarea"
-                  placeholder="Comparte una observación técnica..."
+                  placeholder="Comparte una observación..."
                   value={nuevoComentario}
                   onChange={(event) => setNuevoComentario(event.target.value)}
                 />

@@ -5,19 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Noticia extends Model
+class Comentario extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['titulo', 'contenido', 'fecha', 'foto', 'investigador_id'];
+    protected $fillable = ['contenido', 'fecha', 'user_id', 'estudio_id', 'noticia_id'];
 
-    public function investigador()
+    public function user()
     {
-        return $this->belongsTo(Investigador::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function comentarios()
+    public function estudio()
     {
-        return $this->hasMany(Comentario::class);
+        return $this->belongsTo(Estudio::class);
+    }
+
+    public function noticia()
+    {
+        return $this->belongsTo(Noticia::class);
     }
 }

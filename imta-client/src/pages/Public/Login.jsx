@@ -1,44 +1,83 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import AuthLayout from '../../components/layout/AuthLayout';
+import { formatApiError, login } from '../../services/api';
 
-export default function Login({ onLoginSuccess }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+function resolveRouteByRole(role) {
+  if (role === 'administrador') {
+    return '/admin';
+  }
+
+  if (role === 'investigador') {
+    return '/investigador';
+  }
+
+  return '/';
+}
+
+export default function Login({ user, onAuth }) {
   const navigate = useNavigate();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [status, setStatus] = useState({ loading: false, error: '' });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (email === 'admin@imta.mx') {
-      onLoginSuccess({ name: 'Admin General', role: 'admin' });
-      navigate('/admin');
-    } else if (email === 'investigador@imta.mx') {
-      onLoginSuccess({ name: 'Dr. Gómez', role: 'investigador' });
-      navigate('/investigador');
-    } else {
-      onLoginSuccess({ name: 'Juan Consultor', role: 'consultor' });
-      navigate('/');
+  if (user) {
+    return <Navigate to={resolveRouteByRole(user.rol)} replace />;
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setStatus({ loading: true, error: '' });
+
+    try {
+      const payload = await login(form);
+      onAuth(payload);
+      navigate(resolveRouteByRole(payload.user?.rol), { replace: true });
+    } catch (requestError) {
+      setStatus({ loading: false, error: formatApiError(requestError) });
+      return;
     }
+
+    setStatus({ loading: false, error: '' });
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-grisCustom flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-xl shadow-xl w-full max-w-md border-t-8 border-boio">
-        <h2 className="text-2xl font-black text-cereza text-center mb-6">Control de Acceso</h2>
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-cereza mb-1">Correo Electrónico</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-boio" placeholder="ejemplo@imta.mx" required />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-cereza mb-1">Contraseña</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-boio" placeholder="••••••••" required />
-          </div>
-          <button type="submit" className="w-full bg-boio text-white font-bold py-2 rounded hover:bg-cereza transition-colors">Ingresar</button>
-        </form>
-        <div className="mt-6 text-center text-sm">
-          <Link to="/registro" className="text-boio font-bold hover:underline">¿No tienes cuenta? Regístrate aquí</Link>
-        </div>
-      </div>
-    </div>
+    <AuthLayout
+      title="Control de acceso"
+      subtitle="Ingresa con tu cuenta para comentar publicaciones y acceder a los módulos de gestión."
+      topMessage="Sistema Web Administrativo · Laboratorio de Hidráulica del IMTA"
+      footerText="¿No tienes cuenta?"
+      footerLink="/registro"
+      footerLinkLabel="Regístrate aquí"
+    >
+      {status.error ? <p className="status-box">{status.error}</p> : null}
+
+      <form className="form-grid" onSubmit={handleSubmit}>
+        <label htmlFor="login-email">Correo electrónico</label>
+        <input
+          id="login-email"
+          type="email"
+          className="form-input"
+          placeholder="usuario@imta.mx"
+          value={form.email}
+          onChange={(event) => setForm((previous) => ({ ...previous, email: event.target.value }))}
+          required
+        />
+
+        <label htmlFor="login-password">Contraseña</label>
+        <input
+          id="login-password"
+          type="password"
+          className="form-input"
+          placeholder="••••••••"
+          value={form.password}
+          onChange={(event) => setForm((previous) => ({ ...previous, password: event.target.value }))}
+          required
+        />
+
+        <button type="submit" className="primary-button" disabled={status.loading}>
+          {status.loading ? 'Ingresando...' : 'Iniciar sesión'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }
