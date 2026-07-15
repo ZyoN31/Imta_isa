@@ -1,0 +1,42 @@
+<?php
+
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ComentarioController;
+use App\Http\Controllers\Api\EstudioController;
+use App\Http\Controllers\Api\InvestigadorController;
+use App\Http\Controllers\Api\NoticiaController;
+use Illuminate\Support\Facades\Route;
+
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::get('/investigadores', [InvestigadorController::class, 'index']);
+Route::get('/investigadores/{investigador}', [InvestigadorController::class, 'show']);
+Route::get('/estudios', [EstudioController::class, 'index']);
+Route::get('/estudios/{estudio}', [EstudioController::class, 'show']);
+Route::get('/noticias', [NoticiaController::class, 'index']);
+Route::get('/noticias/{noticia}', [NoticiaController::class, 'show']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me']);
+
+    Route::post('/comentarios', [ComentarioController::class, 'store']);
+    Route::delete('/comentarios/{comentario}', [ComentarioController::class, 'destroy']);
+
+    Route::middleware('role:administrador,investigador')->group(function () {
+        Route::post('/estudios', [EstudioController::class, 'store']);
+        Route::put('/estudios/{estudio}', [EstudioController::class, 'update']);
+        Route::delete('/estudios/{estudio}', [EstudioController::class, 'destroy']);
+
+        Route::post('/noticias', [NoticiaController::class, 'store']);
+        Route::put('/noticias/{noticia}', [NoticiaController::class, 'update']);
+        Route::delete('/noticias/{noticia}', [NoticiaController::class, 'destroy']);
+    });
+
+    Route::middleware('role:administrador')->group(function () {
+        Route::post('/investigadores', [InvestigadorController::class, 'store']);
+        Route::put('/investigadores/{investigador}', [InvestigadorController::class, 'update']);
+        Route::delete('/investigadores/{investigador}', [InvestigadorController::class, 'destroy']);
+    });
+});

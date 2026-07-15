@@ -1,0 +1,30 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Investigador extends Model
+{
+    use HasFactory;
+
+    protected $table = 'investigadores';
+
+    protected $fillable = ['nivel_academico', 'area_investigacion', 'semblanza', 'foto'];
+
+    public function user()
+    {
+        return $this->hasOne(User::class, 'investigador_id');
+    }
+
+    public function estudios()
+    {
+        return $this->hasMany(Estudio::class);
+    }
+
+    public function noticias()
+    {
+        return $this->hasMany(Noticia::class);
+    }
+}

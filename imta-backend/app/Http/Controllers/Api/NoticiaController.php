@@ -1,0 +1,82 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Noticia;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+class NoticiaController extends Controller
+{
+    public function index(): JsonResponse
+    {
+        return response()->json(Noticia::with('investigador.user')->latest('fecha')->get(), 200);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'titulo' => 'required|string|max:200',
+            'contenido' => 'required|string',
+            'fecha' => 'required|date',
+            'investigador_id' => 'required|exists:investigadores,id',
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:3072',
+        ]);
+
+        if ($request->hasFile('foto')) {
+            $validated['foto'] = Storage::url($request->file('foto')->store('noticias', 'public'));
+        }
+
+        $noticia = Noticia::create($validated);
+
+        return response()->json([
+            'message' => 'Noticia publicada con éxito.',
+            'data' => $noticia,
+        ], 201);
+    }
+
+    public function show(Noticia $noticia): JsonResponse
+    {
+        return response()->json($noticia->load('investigador.user', 'comentarios.user'), 200);
+    }
+
+    public function update(Request $request, Noticia $noticia): JsonResponse
+    {
+        $validated = $request->validate([
+            'titulo' => 'required|string|max:200',
+            'contenido' => 'required|string',
+            'fecha' => 'required|date',
+            'investigador_id' => 'required|exists:investigadores,id',
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:3072',
+        ]);
+
+        if ($request->hasFile('foto')) {
+            $this->eliminarFoto($noticia->foto);
+            $validated['foto'] = Storage::url($request->file('foto')->store('noticias', 'public'));
+        }
+
+        $noticia->update($validated);
+
+        return response()->json([
+            'message' => 'Noticia actualizada con éxito.',
+            'data' => $noticia,
+        ], 200);
+    }
+
+    public function destroy(Noticia $noticia): JsonResponse
+    {
+        $this->eliminarFoto($noticia->foto);
+        $noticia->delete();
+
+        return response()->json(['message' => 'Noticia eliminada de los registros.'], 200);
+    }
+
+    private function eliminarFoto(?string $url): void
+    {
+        if ($url) {
+            Storage::disk('public')->delete(str_replace('/storage/', '', $url));
+        }
+    }
+}
