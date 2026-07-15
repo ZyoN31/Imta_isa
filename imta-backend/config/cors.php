@@ -1,17 +1,27 @@
 <?php
 
 return [
+
     /*
     |--------------------------------------------------------------------------
     | Cross-Origin Resource Sharing (CORS) Configuration
     |--------------------------------------------------------------------------
+    |
+    | Here you may configure your settings for cross-origin resource sharing
+    | or "CORS". This determines what cross-origin operations may execute
+    | in web browsers. You are free to adjust these settings as needed.
+    |
     */
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:5173'],
+    // Aquí agregamos explícitamente el puerto por defecto de Vite (React)
+    'allowed_origins' => [
+        'http://localhost:5173', 
+        'http://127.0.0.1:5173'
+    ],
 
     'allowed_origins_patterns' => [],
 
@@ -21,5 +31,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    'supports_credentials' => true, // Importante si después usas cookies/Sanctum
+
 ];
