@@ -8,6 +8,7 @@ import {
   formatApiError,
   getDisplayName,
   resolveBackendUrl,
+  updateComentario,
 } from '../../services/api';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585241936939-be4099591252?auto=format&fit=crop&w=1400&q=80';
@@ -27,6 +28,9 @@ export default function DetalleNoticia({ user, onLogout }) {
   const [nuevoComentario, setNuevoComentario] = useState('');
   const [status, setStatus] = useState({ loading: true, error: '', success: '' });
   const [sendingComment, setSendingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editingContenido, setEditingContenido] = useState('');
+  const [updatingComment, setUpdatingComment] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -103,6 +107,45 @@ export default function DetalleNoticia({ user, onLogout }) {
   };
 
   const canDeleteComment = (comment) => user && (comment.user_id === user.id || user.rol === 'administrador');
+  const canEditComment = (comment) => user && comment.user_id === user.id;
+  const canPublishComment = user && user.rol !== 'administrador';
+
+  const startEditComment = (comment) => {
+    setEditingCommentId(comment.id);
+    setEditingContenido(comment.contenido);
+    setStatus((previous) => ({ ...previous, error: '', success: '' }));
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingContenido('');
+  };
+
+  const handleUpdateComment = async (commentId) => {
+    if (!editingContenido.trim()) {
+      setStatus((previous) => ({ ...previous, error: 'El comentario no puede estar vacío.', success: '' }));
+      return;
+    }
+
+    setUpdatingComment(true);
+    setStatus((previous) => ({ ...previous, error: '', success: '' }));
+
+    try {
+      const response = await updateComentario(commentId, { contenido: editingContenido.trim() });
+      setNoticia((previous) => ({
+        ...previous,
+        comentarios: (previous?.comentarios ?? []).map((comment) =>
+          comment.id === commentId ? { ...comment, ...response.data } : comment,
+        ),
+      }));
+      cancelEditComment();
+      setStatus((previous) => ({ ...previous, success: response.message || 'Comentario actualizado.' }));
+    } catch (requestError) {
+      setStatus((previous) => ({ ...previous, error: formatApiError(requestError), success: '' }));
+    } finally {
+      setUpdatingComment(false);
+    }
+  };
 
   return (
     <InstitutionLayout user={user} onLogout={onLogout}>
@@ -142,6 +185,11 @@ export default function DetalleNoticia({ user, onLogout }) {
                     <strong className="comment-author">{getDisplayName(comment.user)}</strong>
                     <div className="comment-meta">
                       <span className="comment-date">{formatDate(comment.fecha || comment.created_at)}</span>
+                      {canEditComment(comment) ? (
+                        <button type="button" className="ghost-button" onClick={() => startEditComment(comment)}>
+                          Editar
+                        </button>
+                      ) : null}
                       {canDeleteComment(comment) ? (
                         <button type="button" className="danger-button" onClick={() => handleDeleteComment(comment.id)}>
                           Eliminar
@@ -149,12 +197,35 @@ export default function DetalleNoticia({ user, onLogout }) {
                       ) : null}
                     </div>
                   </header>
-                  <p>{comment.contenido}</p>
+                  {editingCommentId === comment.id ? (
+                    <div className="form-grid">
+                      <textarea
+                        className="form-textarea"
+                        value={editingContenido}
+                        onChange={(event) => setEditingContenido(event.target.value)}
+                      />
+                      <div className="form-actions">
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => handleUpdateComment(comment.id)}
+                          disabled={updatingComment}
+                        >
+                          {updatingComment ? 'Guardando...' : 'Guardar'}
+                        </button>
+                        <button type="button" className="ghost-button" onClick={cancelEditComment} disabled={updatingComment}>
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p>{comment.contenido}</p>
+                  )}
                 </article>
               ))}
             </div>
 
-            {user ? (
+            {canPublishComment ? (
               <form className="comment-form form-grid" onSubmit={handleSubmitComment}>
                 <label htmlFor="noticia-comment">Agregar comentario</label>
                 <textarea
@@ -170,6 +241,10 @@ export default function DetalleNoticia({ user, onLogout }) {
                   </button>
                 </div>
               </form>
+            ) : user ? (
+              <article className="empty-state">
+                <p>Tu cuenta de administrador solo puede moderar comentarios.</p>
+              </article>
             ) : (
               <article className="empty-state">
                 <p>

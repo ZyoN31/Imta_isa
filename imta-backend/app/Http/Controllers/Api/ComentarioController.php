@@ -22,6 +22,10 @@ class ComentarioController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        if ($request->user()->rol === 'administrador') {
+            return response()->json(['message' => 'El administrador no puede publicar comentarios.'], 403);
+        }
+
         $validated = $request->validate([
             'contenido' => 'required|string',
             'estudio_id' => 'nullable|exists:estudios,id|required_without:noticia_id',
@@ -54,5 +58,28 @@ class ComentarioController extends Controller
         $comentario->delete();
 
         return response()->json(['message' => 'Comentario eliminado.'], 200);
+    }
+
+    public function update(Request $request, Comentario $comentario): JsonResponse
+    {
+        $esDueno = $request->user()->id === $comentario->user_id;
+
+        if (! $esDueno) {
+            return response()->json(['message' => 'No tienes autorización para editar este comentario.'], 403);
+        }
+
+        $validated = $request->validate([
+            'contenido' => 'required|string',
+        ]);
+
+        $comentario->update([
+            'contenido' => $validated['contenido'],
+            'fecha' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Comentario actualizado con éxito.',
+            'data' => $comentario->fresh()->load('user'),
+        ], 200);
     }
 }

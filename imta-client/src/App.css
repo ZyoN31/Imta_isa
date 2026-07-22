@@ -179,6 +179,7 @@
 
 .ghost-link,
 .solid-link,
+.ghost-button,
 .primary-button,
 .secondary-button,
 .danger-button {
@@ -195,6 +196,7 @@
 
 .ghost-link:hover,
 .solid-link:hover,
+.ghost-button:hover,
 .primary-button:hover,
 .secondary-button:hover,
 .danger-button:hover {
@@ -202,10 +204,23 @@
 }
 
 .ghost-link,
+.ghost-button,
 .secondary-button {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   border-color: rgba(255, 255, 255, 0.25);
+}
+
+.ghost-button {
+  background: rgba(97, 18, 50, 0.08);
+  color: var(--boio);
+  border-color: rgba(97, 18, 50, 0.2);
+}
+
+.muted-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(58, 11, 30, 0.75);
 }
 
 .solid-link,

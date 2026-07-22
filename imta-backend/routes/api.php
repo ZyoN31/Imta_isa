@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 
     Route::post('/comentarios', [ComentarioController::class, 'store']);
+    Route::put('/comentarios/{comentario}', [ComentarioController::class, 'update']);
     Route::delete('/comentarios/{comentario}', [ComentarioController::class, 'destroy']);
 
     Route::middleware('role:administrador,investigador')->group(function () {
@@ -36,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:administrador')->group(function () {
         Route::get('/admin/consultores', [AuthController::class, 'consultores']);
+        Route::delete('/admin/consultores/{user}', [AuthController::class, 'destroyConsultor']);
         Route::get('/admin/comentarios', [ComentarioController::class, 'index']);
 
         Route::post('/investigadores', [InvestigadorController::class, 'store']);

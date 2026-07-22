@@ -5,6 +5,7 @@ import InstitutionLayout from '../../components/layout/InstitutionLayout';
 import {
   createInvestigador,
   deleteComentario,
+  deleteConsultor,
   deleteEstudio,
   deleteInvestigador,
   deleteNoticia,
@@ -16,6 +17,7 @@ import {
   formatApiError,
   getDisplayName,
   resolveBackendUrl,
+  updateInvestigador,
 } from '../../services/api';
 
 const ADMIN_SECTIONS = [
@@ -136,6 +138,8 @@ export default function Dashboard({ user, onLogout }) {
     semblanza: '',
     foto: null,
   });
+  const [editingInvestigadorId, setEditingInvestigadorId] = useState(null);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filters, setFilters] = useState({
     investigadores: { search: '', nivel: '', area: '' },
@@ -279,30 +283,86 @@ export default function Dashboard({ user, onLogout }) {
     }));
   };
 
+  const resetInvestigadorForm = () => {
+    setNewInvestigador({
+      nombre: '',
+      apellido_paterno: '',
+      apellido_materno: '',
+      email: '',
+      password: '',
+      password_confirmation: '',
+      nivel_academico: '',
+      area_investigacion: '',
+      semblanza: '',
+      foto: null,
+    });
+    setEditingInvestigadorId(null);
+    setChangingPassword(false);
+  };
+
+  const handleEditInvestigador = (item) => {
+    setActiveSection('investigadores');
+    setEditingInvestigadorId(item.id);
+    setNewInvestigador({
+      nombre: item.user?.nombre || '',
+      apellido_paterno: item.user?.apellido_paterno || '',
+      apellido_materno: item.user?.apellido_materno || '',
+      email: item.user?.email || '',
+      password: '',
+      password_confirmation: '',
+      nivel_academico: item.nivel_academico || '',
+      area_investigacion: item.area_investigacion || '',
+      semblanza: item.semblanza || '',
+      foto: null,
+    });
+    setChangingPassword(false);
+  };
+
   const handleCreateInvestigador = async (event) => {
     event.preventDefault();
     setSubmitting(true);
     setStatus((previous) => ({ ...previous, error: '', success: '' }));
 
     try {
-      const response = await createInvestigador(newInvestigador);
-      const created = response.data;
-      setInvestigadores((previous) => [created, ...previous]);
-      setNewInvestigador({
-        nombre: '',
-        apellido_paterno: '',
-        apellido_materno: '',
-        email: '',
-        password: '',
-        password_confirmation: '',
-        nivel_academico: '',
-        area_investigacion: '',
-        semblanza: '',
-        foto: null,
-      });
+      const payload = { ...newInvestigador };
+      const mustSendPassword = !editingInvestigadorId || changingPassword;
+      if (mustSendPassword && payload.password !== payload.password_confirmation) {
+        setStatus((previous) => ({
+          ...previous,
+          success: '',
+          error: 'La confirmación de contraseña no coincide.',
+        }));
+        setSubmitting(false);
+        return;
+      }
+
+      if (!mustSendPassword || !payload.password) {
+        delete payload.password;
+        delete payload.password_confirmation;
+      }
+
+      if (editingInvestigadorId) {
+        const response = await updateInvestigador(editingInvestigadorId, payload);
+        const refreshed = await fetchInvestigadores();
+        setInvestigadores(Array.isArray(refreshed) ? refreshed : []);
+        setStatus((previous) => ({
+          ...previous,
+          success: response.message || 'Investigador actualizado correctamente.',
+        }));
+      } else {
+        const response = await createInvestigador(payload);
+        const created = response.data;
+        setInvestigadores((previous) => [created, ...previous]);
+        setStatus((previous) => ({
+          ...previous,
+          success: response.message || 'Investigador registrado correctamente.',
+        }));
+      }
+
+      resetInvestigadorForm();
       setStatus((previous) => ({
         ...previous,
-        success: response.message || 'Investigador registrado correctamente.',
+        error: '',
       }));
     } catch (requestError) {
       setStatus((previous) => ({ ...previous, error: formatApiError(requestError), success: '' }));
@@ -337,6 +397,12 @@ export default function Dashboard({ user, onLogout }) {
         const response = await deleteComentario(id);
         setComentarios((previous) => previous.filter((item) => item.id !== id));
         setStatus((previous) => ({ ...previous, success: response.message || 'Comentario eliminado.' }));
+      }
+
+      if (type === 'consultor') {
+        const response = await deleteConsultor(id);
+        setConsultores((previous) => previous.filter((item) => item.id !== id));
+        setStatus((previous) => ({ ...previous, success: response.message || 'Consultor eliminado.' }));
       }
     } catch (requestError) {
       setStatus((previous) => ({ ...previous, error: formatApiError(requestError), success: '' }));
@@ -452,6 +518,7 @@ export default function Dashboard({ user, onLogout }) {
         value={filters.investigadores.area}
         onChange={(event) => setSectionFilter('investigadores', { area: event.target.value })}
       />
+      <p className="muted-text">Filtros opcionales para refinar el PDF: nombre, grado académico y área.</p>
 
       <div className="table-scroll">
         <table className="data-table">
@@ -472,6 +539,13 @@ export default function Dashboard({ user, onLogout }) {
                 <td>{item.nivel_academico || 'Sin dato'}</td>
                 <td>{item.area_investigacion || 'Sin dato'}</td>
                 <td>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => handleEditInvestigador(item)}
+                  >
+                    Editar
+                  </button>
                   <button
                     type="button"
                     className="danger-button"
@@ -522,6 +596,7 @@ export default function Dashboard({ user, onLogout }) {
               <th>Nombre</th>
               <th>Correo</th>
               <th>Fecha de alta</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -530,6 +605,15 @@ export default function Dashboard({ user, onLogout }) {
                 <td>{getDisplayName(item)}</td>
                 <td>{item.email}</td>
                 <td>{formatDate(item.created_at)}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="danger-button"
+                    onClick={() => handleDelete({ type: 'consultor', id: item.id })}
+                  >
+                    Eliminar
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -587,6 +671,7 @@ export default function Dashboard({ user, onLogout }) {
           />
         </div>
       </div>
+      <p className="muted-text">Filtros opcionales para refinar el PDF: autor, clasificación y fecha de publicación.</p>
 
       <div className="table-scroll">
         <table className="data-table">
@@ -672,6 +757,7 @@ export default function Dashboard({ user, onLogout }) {
           onChange={(event) => setSectionFilter('noticias', { to: event.target.value })}
         />
       </div>
+      <p className="muted-text">Filtros opcionales para refinar el PDF: autor y fecha de publicación.</p>
 
       <div className="table-scroll">
         <table className="data-table">
@@ -827,8 +913,12 @@ export default function Dashboard({ user, onLogout }) {
       <section className="dashboard-section panel management-panel">
         <div className="section-head">
           <div>
-            <h2>Alta de investigador con cuenta</h2>
-            <p>Crea el perfil del investigador y su cuenta de acceso desde administración.</p>
+            <h2>{editingInvestigadorId ? 'Edición de investigador' : 'Alta de investigador con cuenta'}</h2>
+            <p>
+              {editingInvestigadorId
+                ? 'Actualiza el perfil del investigador y su cuenta de acceso.'
+                : 'Crea el perfil del investigador y su cuenta de acceso desde administración.'}
+            </p>
           </div>
         </div>
 
@@ -871,28 +961,60 @@ export default function Dashboard({ user, onLogout }) {
             />
           </div>
 
-          <div className="form-grid form-grid--two">
-            <input
-              id="admin-password"
-              type="password"
-              className="form-input"
-              placeholder="Contraseña inicial"
-              value={newInvestigador.password}
-              onChange={(event) => setNewInvestigador((previous) => ({ ...previous, password: event.target.value }))}
-              required
-              minLength={8}
-            />
-            <input
-              id="admin-password-confirmation"
-              type="password"
-              className="form-input"
-              placeholder="Confirmar contraseña"
-              value={newInvestigador.password_confirmation}
-              onChange={(event) => setNewInvestigador((previous) => ({ ...previous, password_confirmation: event.target.value }))}
-              required
-              minLength={8}
-            />
-          </div>
+          {!editingInvestigadorId || changingPassword ? (
+            <div className="form-grid form-grid--two">
+              <input
+                id="admin-password"
+                type="password"
+                className="form-input"
+                placeholder={editingInvestigadorId ? 'Nueva contraseña (mínimo 8 caracteres)' : 'Contraseña inicial'}
+                value={newInvestigador.password}
+                autoComplete="new-password"
+                onChange={(event) => setNewInvestigador((previous) => ({ ...previous, password: event.target.value }))}
+                required={!editingInvestigadorId || changingPassword}
+                minLength={8}
+              />
+              <input
+                id="admin-password-confirmation"
+                type="password"
+                className="form-input"
+                placeholder="Confirmar contraseña"
+                value={newInvestigador.password_confirmation}
+                autoComplete="new-password"
+                onChange={(event) => setNewInvestigador((previous) => ({ ...previous, password_confirmation: event.target.value }))}
+                required={!editingInvestigadorId || changingPassword}
+                minLength={8}
+              />
+            </div>
+          ) : (
+            <div className="form-actions">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => {
+                  setChangingPassword(true);
+                  setNewInvestigador((previous) => ({ ...previous, password: '', password_confirmation: '' }));
+                }}
+              >
+                Cambiar contraseña
+              </button>
+            </div>
+          )}
+
+          {editingInvestigadorId && changingPassword ? (
+            <div className="form-actions">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => {
+                  setChangingPassword(false);
+                  setNewInvestigador((previous) => ({ ...previous, password: '', password_confirmation: '' }));
+                }}
+              >
+                Cancelar cambio de contraseña
+              </button>
+            </div>
+          ) : null}
 
           <div className="form-grid form-grid--two">
             <input
@@ -932,8 +1054,13 @@ export default function Dashboard({ user, onLogout }) {
 
           <div className="form-actions">
             <button type="submit" className="primary-button" disabled={submitting}>
-              {submitting ? 'Guardando...' : 'Registrar investigador'}
+              {submitting ? 'Guardando...' : editingInvestigadorId ? 'Actualizar investigador' : 'Registrar investigador'}
             </button>
+            {editingInvestigadorId ? (
+              <button type="button" className="ghost-button" onClick={resetInvestigadorForm} disabled={submitting}>
+                Cancelar edición
+              </button>
+            ) : null}
           </div>
         </form>
       </section>

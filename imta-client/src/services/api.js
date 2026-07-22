@@ -175,8 +175,21 @@ export async function deleteComentario(id) {
   return data;
 }
 
+export async function updateComentario(id, payload) {
+  const { data } = await api.put(`/comentarios/${id}`, payload);
+  return data;
+}
+
 export async function deleteInvestigador(id) {
   const { data } = await api.delete(`/investigadores/${id}`);
+  return data;
+}
+
+export async function updateInvestigador(id, payload) {
+  const formData = buildMultipartPayload({ ...payload, _method: 'PUT' });
+  const { data } = await api.post(`/investigadores/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return data;
 }
 
@@ -187,6 +200,11 @@ export async function deleteEstudio(id) {
 
 export async function deleteNoticia(id) {
   const { data } = await api.delete(`/noticias/${id}`);
+  return data;
+}
+
+export async function deleteConsultor(id) {
+  const { data } = await api.delete(`/admin/consultores/${id}`);
   return data;
 }
 

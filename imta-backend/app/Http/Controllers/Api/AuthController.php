@@ -85,4 +85,15 @@ class AuthController extends Controller
             200
         );
     }
+
+    public function destroyConsultor(User $user): JsonResponse
+    {
+        if ($user->rol !== 'consultor') {
+            return response()->json(['message' => 'Solo se pueden eliminar cuentas de consultores.'], 422);
+        }
+
+        $user->delete();
+
+        return response()->json(['message' => 'Consultor eliminado de los registros.'], 200);
+    }
 }
