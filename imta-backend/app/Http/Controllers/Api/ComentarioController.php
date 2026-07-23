@@ -63,6 +63,11 @@ class ComentarioController extends Controller
     public function update(Request $request, Comentario $comentario): JsonResponse
     {
         $esDueno = $request->user()->id === $comentario->user_id;
+        $esAdmin = $request->user()->rol === 'administrador';
+
+        if ($esAdmin) {
+            return response()->json(['message' => 'Los administradores solo pueden eliminar comentarios.'], 403);
+        }
 
         if (! $esDueno) {
             return response()->json(['message' => 'No tienes autorización para editar este comentario.'], 403);

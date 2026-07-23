@@ -107,7 +107,7 @@ export default function DetalleNoticia({ user, onLogout }) {
   };
 
   const canDeleteComment = (comment) => user && (comment.user_id === user.id || user.rol === 'administrador');
-  const canEditComment = (comment) => user && comment.user_id === user.id;
+  const canEditComment = (comment) => user && user.rol !== 'administrador' && comment.user_id === user.id;
   const canPublishComment = user && user.rol !== 'administrador';
 
   const startEditComment = (comment) => {

@@ -28,6 +28,13 @@ const ADMIN_SECTIONS = [
   { id: 'comentarios', label: 'Comentarios' },
 ];
 
+const REPORT_SECTIONS = [
+  { id: 'investigadores', label: 'Investigadores' },
+  { id: 'estudios', label: 'Estudios' },
+  { id: 'noticias', label: 'Noticias' },
+  { id: 'publicaciones', label: 'Proyectos / Publicaciones' },
+];
+
 function normalize(value) {
   return String(value ?? '').toLowerCase().trim();
 }
@@ -202,11 +209,12 @@ export default function Dashboard({ user, onLogout }) {
   const [changingPassword, setChangingPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [reportStatus, setReportStatus] = useState({ error: '', success: '' });
-  const [reportConfig, setReportConfig] = useState({
-    type: 'publicaciones-investigador',
-    investigadorId: '',
-    from: '',
-    to: '',
+  const [activeReportTab, setActiveReportTab] = useState('investigadores');
+  const [reportFilters, setReportFilters] = useState({
+    investigadores: { search: '', nivel: '', area: '', from: '', to: '' },
+    estudios: { autor: '', categoria: '', from: '', to: '' },
+    noticias: { autor: '', from: '', to: '' },
+    publicaciones: { investigadorId: '', from: '', to: '' },
   });
   const [filters, setFilters] = useState({
     investigadores: { search: '', nivel: '', area: '' },
@@ -359,6 +367,91 @@ export default function Dashboard({ user, onLogout }) {
     }));
   };
 
+  const setReportFilter = (section, patch) => {
+    setReportFilters((previous) => ({
+      ...previous,
+      [section]: { ...previous[section], ...patch },
+    }));
+  };
+
+  const getFilteredInvestigadoresForReport = () => {
+    const filter = reportFilters.investigadores;
+    const query = normalize(filter.search);
+
+    return investigadores.filter((item) => {
+      const fullName = normalize(getDisplayName(item.user));
+      const nivel = normalize(item.nivel_academico);
+      const area = normalize(item.area_investigacion);
+
+      const matchesSearch = !query || [fullName, nivel, area].some((value) => value.includes(query));
+      const matchesNivel = !normalize(filter.nivel) || nivel.includes(normalize(filter.nivel));
+      const matchesArea = !normalize(filter.area) || area.includes(normalize(filter.area));
+
+      return matchesSearch && matchesNivel && matchesArea;
+    });
+  };
+
+  const getFilteredStudyRecordsForReport = () => {
+    const filter = reportFilters.estudios;
+    const query = normalize(filter.autor);
+    const category = normalize(filter.categoria);
+
+    return estudios.filter((item) => {
+      const author = normalize(getDisplayName(item.investigador?.user));
+      const categoryValue = normalize(item.categoria);
+      const dateValue = item.created_at || item.updated_at;
+
+      const matchesAutor = !query || author.includes(query);
+      const matchesCategoria = !category || categoryValue.includes(category);
+      const matchesDate = (!filter.from && !filter.to) || matchesDateRange(dateValue, filter.from, filter.to);
+
+      return matchesAutor && matchesCategoria && matchesDate;
+    });
+  };
+
+  const getFilteredNewsRecordsForReport = () => {
+    const filter = reportFilters.noticias;
+    const query = normalize(filter.autor);
+
+    return noticias.filter((item) => {
+      const author = normalize(getDisplayName(item.investigador?.user));
+      const dateValue = item.fecha || item.created_at;
+      const matchesAutor = !query || author.includes(query);
+      const matchesDate = (!filter.from && !filter.to) || matchesDateRange(dateValue, filter.from, filter.to);
+      return matchesAutor && matchesDate;
+    });
+  };
+
+  const getFilteredPublicationRecordsForReport = () => {
+    const filter = reportFilters.publicaciones;
+    const investigatorId = filter.investigadorId;
+    const studies = estudios.filter((item) => {
+      const matchesResearcher = !investigatorId || Number(item.investigador_id) === Number(investigatorId);
+      const matchesDate = (!filter.from && !filter.to) || matchesDateRange(item.created_at || item.updated_at, filter.from, filter.to);
+      return matchesResearcher && matchesDate;
+    });
+    const news = noticias.filter((item) => {
+      const matchesResearcher = !investigatorId || Number(item.investigador_id) === Number(investigatorId);
+      const matchesDate = (!filter.from && !filter.to) || matchesDateRange(item.fecha || item.created_at, filter.from, filter.to);
+      return matchesResearcher && matchesDate;
+    });
+    return { studies, news };
+  };
+
+  const getMonthsInRange = (from, to) => {
+    if (!from || !to) {
+      return 1;
+    }
+
+    const start = new Date(from);
+    const end = new Date(to);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+      return 1;
+    }
+
+    return Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1);
+  };
+
   const resetInvestigadorForm = () => {
     setNewInvestigador({
       nombre: '',
@@ -499,201 +592,370 @@ export default function Dashboard({ user, onLogout }) {
       return matchesResearcher && matchesDate;
     });
 
-  const buildInvestigatorReport = () => {
-    const { type, investigadorId, from, to } = reportConfig;
-    const selectedInvestigator = reportInvestigatorOptions.find((item) => String(item.id) === String(investigadorId));
-    const investigatorLabel = selectedInvestigator ? selectedInvestigator.label : 'Todos los investigadores';
-    const rangeLabel = `${from || 'inicio'} - ${to || 'fin'}`;
+  const renderReportMetricCards = (metrics) => (
+    <section className="cards-grid">
+      {metrics.map((metric) => (
+        <article className="panel-card" key={metric.label}>
+          <strong>{metric.value}</strong>
+          <span>{metric.label}</span>
+        </article>
+      ))}
+    </section>
+  );
 
-    if (['proyectos-investigador', 'estudios-investigador', 'publicaciones-investigador'].includes(type)) {
-      if (!investigadorId) {
-        setReportStatus({ error: 'Selecciona un investigador para este reporte.', success: '' });
-        return;
-      }
-
-      if (!from || !to) {
-        setReportStatus({ error: 'Selecciona fecha de inicio y fecha fin para este reporte.', success: '' });
-        return;
-      }
-    }
-
+  const buildAdminReport = () => {
     setReportStatus({ error: '', success: '' });
 
-    if (type === 'proyectos-investigador' || type === 'estudios-investigador') {
-      const records = getFilteredStudyRecords(investigadorId, from, to);
-      const totalInRange = estudios.filter((item) => matchesDateRange(item.created_at || item.updated_at, from, to)).length;
-      const ranking = [...estudios]
-        .filter((item) => matchesDateRange(item.created_at || item.updated_at, from, to))
-        .reduce((acc, item) => {
-          const key = item.investigador?.user ? getDisplayName(item.investigador.user) : 'Sin investigador';
-          acc[key] = (acc[key] ?? 0) + 1;
-          return acc;
-        }, {});
-      const rows = records.map((item, index) => [
-        String(index + 1),
-        item.titulo || '',
-        item.categoria || '',
-        formatDate(item.created_at || item.updated_at),
-        getDisplayName(item.investigador?.user),
-      ]);
-      const summary = [
-        ['Investigador', investigatorLabel],
-        ['Rango de fechas', rangeLabel],
-        ['Total de registros', String(records.length)],
-        ['Participación sobre estudios del rango', percent(records.length, totalInRange)],
-      ];
-
-      downloadPdfReport({
-        filename: 'reporte-proyectos-investigador.pdf',
-        title: 'Reporte de proyectos / estudios por investigador',
-        subtitle: 'Incluye total, porcentaje de participación y distribución por registros.',
-        summary,
-        tables: [
-          { headers: ['#', 'Título', 'Categoría', 'Fecha', 'Investigador'], rows },
-          {
-            label: 'Ranking de investigadores en el rango',
-            headers: ['Investigador', 'Proyectos/Estudios', 'Porcentaje'],
-            rows: Object.entries(ranking)
-              .sort((a, b) => b[1] - a[1])
-              .map(([name, count]) => [name, String(count), percent(count, Object.values(ranking).reduce((acc, value) => acc + value, 0))]),
-          },
-        ],
+    if (activeReportTab === 'investigadores') {
+      const filter = reportFilters.investigadores;
+      const selectedInvestigadores = getFilteredInvestigadoresForReport();
+      const publications = selectedInvestigadores.map((item) => {
+        const studiesCount = estudios.filter(
+          (study) => Number(study.investigador_id) === Number(item.id) && matchesDateRange(study.created_at || study.updated_at, filter.from, filter.to),
+        ).length;
+        const newsCount = noticias.filter(
+          (newsItem) => Number(newsItem.investigador_id) === Number(item.id) && matchesDateRange(newsItem.fecha || newsItem.created_at, filter.from, filter.to),
+        ).length;
+        return {
+          name: getDisplayName(item.user),
+          studiesCount,
+          newsCount,
+          total: studiesCount + newsCount,
+          area: item.area_investigacion || 'Sin área',
+          nivel: item.nivel_academico || 'Sin grado',
+        };
       });
-      return;
-    }
 
-    if (type === 'noticias-investigador') {
-      const records = getFilteredNewsRecords(investigadorId, from, to);
-      const totalInRange = noticias.filter((item) => matchesDateRange(item.fecha || item.created_at, from, to)).length;
-      const rows = records.map((item, index) => [
-        String(index + 1),
-        item.titulo || '',
-        formatDate(item.fecha || item.created_at),
-        getDisplayName(item.investigador?.user),
-      ]);
-      const summary = [
-        ['Investigador', investigatorLabel],
-        ['Rango de fechas', rangeLabel],
-        ['Total de publicaciones', String(records.length)],
-        ['Participación sobre noticias del rango', percent(records.length, totalInRange)],
-      ];
-
-      downloadPdfReport({
-        filename: 'reporte-noticias-investigador.pdf',
-        title: 'Reporte de publicaciones registradas por investigador',
-        subtitle: 'Resumen de noticias, porcentaje de participación y detalle de registros.',
-        summary,
-        tables: [{ headers: ['#', 'Título', 'Fecha', 'Investigador'], rows }],
-      });
-      return;
-    }
-
-    if (type === 'publicaciones-investigador') {
-      const studies = getFilteredStudyRecords(investigadorId, from, to).map((item) => ({
-        tipo: 'Estudio',
-        titulo: item.titulo || '',
-        fecha: item.created_at || item.updated_at,
-        autor: getDisplayName(item.investigador?.user),
-      }));
-      const news = getFilteredNewsRecords(investigadorId, from, to).map((item) => ({
-        tipo: 'Noticia',
-        titulo: item.titulo || '',
-        fecha: item.fecha || item.created_at,
-        autor: getDisplayName(item.investigador?.user),
-      }));
-      const records = [...studies, ...news].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-      const totalInRange = [...estudios, ...noticias].filter((item) => {
-        const dateValue = item.categoria !== undefined ? item.created_at || item.updated_at : item.fecha || item.created_at;
-        return matchesDateRange(dateValue, from, to);
-      }).length;
-      const summary = [
-        ['Investigador', investigatorLabel],
-        ['Rango de fechas', rangeLabel],
-        ['Total de publicaciones', String(records.length)],
-        ['Porcentaje sobre el total del rango', percent(records.length, totalInRange)],
-        ['Estudios', String(studies.length)],
-        ['Noticias', String(news.length)],
-      ];
-
-      downloadPdfReport({
-        filename: 'reporte-publicaciones-investigador.pdf',
-        title: 'Reporte de publicaciones por investigador',
-        subtitle: 'Combina estudios y noticias para el investigador seleccionado.',
-        summary,
-        tables: [
-          {
-            headers: ['Tipo', 'Título', 'Fecha', 'Autor'],
-            rows: records.map((item) => [item.tipo, item.titulo, formatDate(item.fecha), item.autor]),
-          },
-        ],
-      });
-      return;
-    }
-
-    if (type === 'areas-publicaciones') {
-      const areaCounts = investigadores.reduce((acc, item) => {
+      const totalInvestigadores = selectedInvestigadores.length;
+      const totalPublicaciones = publications.reduce((acc, item) => acc + item.total, 0);
+      const areaCounts = selectedInvestigadores.reduce((acc, item) => {
         const area = item.area_investigacion || 'Sin área';
-        acc[area] = acc[area] ?? { studies: 0, news: 0 };
-        acc[area].studies += estudios.filter((study) => Number(study.investigador_id) === Number(item.id)).length;
-        acc[area].news += noticias.filter((newsItem) => Number(newsItem.investigador_id) === Number(item.id)).length;
+        acc[area] = (acc[area] ?? 0) + 1;
         return acc;
       }, {});
-      const entries = Object.entries(areaCounts)
-        .map(([area, counts]) => ({
-          area,
-          total: counts.studies + counts.news,
-        }))
-        .sort((a, b) => b.total - a.total);
-      const totalPublications = entries.reduce((acc, item) => acc + item.total, 0);
-      const rows = entries.map((item, index) => [String(index + 1), item.area, String(item.total), percent(item.total, totalPublications)]);
+      const nivelCounts = selectedInvestigadores.reduce((acc, item) => {
+        const nivel = item.nivel_academico || 'Sin grado';
+        acc[nivel] = (acc[nivel] ?? 0) + 1;
+        return acc;
+      }, {});
+      const ranking = [...publications]
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
+
+      const rows = selectedInvestigadores.map((item, index) => {
+        const row = publications.find((pub) => pub.name === getDisplayName(item.user));
+        return [
+          String(index + 1),
+          getDisplayName(item.user),
+          item.nivel_academico || 'Sin dato',
+          item.area_investigacion || 'Sin dato',
+          String(row?.studiesCount || 0),
+          String(row?.newsCount || 0),
+          String(row?.total || 0),
+        ];
+      });
 
       downloadPdfReport({
-        filename: 'reporte-publicaciones-por-area.pdf',
-        title: 'Reporte de publicaciones por área',
-        subtitle: 'Distribución porcentual de estudios y noticias por área de investigación.',
+        filename: 'reporte-investigadores-avanzado.pdf',
+        title: 'Reporte de investigadores',
+        subtitle: 'Incluye totales, ranking por publicaciones y distribución por área y grado académico.',
         summary: [
-          ['Área con más publicaciones', entries[0]?.area || 'Sin datos'],
-          ['Total de publicaciones', String(totalPublications)],
+          ['Total de investigadores en el filtro', String(totalInvestigadores)],
+          ['Total de publicaciones en el rango', String(totalPublicaciones)],
+          ['Promedio de publicaciones por investigador', `${totalInvestigadores ? (totalPublicaciones / totalInvestigadores).toFixed(1) : '0.0'}`],
+          ['Periodo', `${filter.from || 'inicio'} - ${filter.to || 'fin'}`],
         ],
-        tables: [{ headers: ['#', 'Área', 'Total', 'Porcentaje'], rows }],
+        tables: [
+          {
+            label: 'Ranking de investigadores con más publicaciones',
+            headers: ['Investigador', 'Estudios', 'Noticias', 'Total'],
+            rows: ranking.map((item) => [item.name, String(item.studiesCount), String(item.newsCount), String(item.total)]),
+          },
+          {
+            label: 'Distribución por área de investigación',
+            headers: ['Área', 'Investigadores', 'Porcentaje'],
+            rows: Object.entries(areaCounts).map(([area, count]) => [area, String(count), percent(count, totalInvestigadores)]),
+          },
+          {
+            label: 'Distribución por grado académico',
+            headers: ['Grado académico', 'Investigadores', 'Porcentaje'],
+            rows: Object.entries(nivelCounts).map(([nivel, count]) => [nivel, String(count), percent(count, totalInvestigadores)]),
+          },
+          {
+            label: 'Investigadores incluidos',
+            headers: ['#', 'Nombre', 'Grado', 'Área', 'Estudios', 'Noticias', 'Total'],
+            rows,
+          },
+        ],
       });
       return;
     }
 
-    if (type === 'ranking-investigadores') {
-      const ranking = investigadores
-        .map((item) => {
-          const studiesCount = estudios.filter((study) => Number(study.investigador_id) === Number(item.id)).length;
-          const newsCount = noticias.filter((newsItem) => Number(newsItem.investigador_id) === Number(item.id)).length;
-          return {
-            name: getDisplayName(item.user),
-            total: studiesCount + newsCount,
-            studiesCount,
-            newsCount,
-          };
-        })
-        .sort((a, b) => b.total - a.total);
-      const totalPublications = ranking.reduce((acc, item) => acc + item.total, 0);
-      const rows = ranking.map((item, index) => [
-        String(index + 1),
-        item.name,
-        String(item.total),
-        String(item.studiesCount),
-        String(item.newsCount),
-        percent(item.total, totalPublications),
-      ]);
+    if (activeReportTab === 'estudios') {
+      const filter = reportFilters.estudios;
+      const records = getFilteredStudyRecordsForReport();
+      const totalStudies = records.length;
+      const studiesByInvestigator = records.reduce((acc, item) => {
+        const key = getDisplayName(item.investigador?.user);
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      const studiesByCategory = records.reduce((acc, item) => {
+        const key = item.categoria || 'Sin categoría';
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      const areas = records.reduce((acc, item) => {
+        const key = item.investigador?.area_investigacion || 'Sin área';
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      const withDocuments = records.filter((item) => Boolean(item.documento)).length;
+      const withImages = records.filter((item) => Boolean(item.foto)).length;
+      const months = getMonthsInRange(filter.from, filter.to);
+      const topAuthor = Object.entries(studiesByInvestigator).sort((a, b) => b[1] - a[1])[0];
+      const topArea = Object.entries(areas).sort((a, b) => b[1] - a[1])[0];
 
       downloadPdfReport({
-        filename: 'reporte-ranking-investigadores.pdf',
-        title: 'Ranking de investigadores con más publicaciones',
-        subtitle: 'Incluye proyectos/estudios, noticias y porcentaje de participación.',
+        filename: 'reporte-estudios-avanzado.pdf',
+        title: 'Reporte de estudios',
+        subtitle: 'Estadísticas de estudios por autor, categoría, área y presencia de adjuntos.',
         summary: [
-          ['Total de publicaciones', String(totalPublications)],
-          ['Investigador líder', ranking[0]?.name || 'Sin datos'],
+          ['Total de estudios en el rango', String(totalStudies)],
+          ['Autor con más estudios', topAuthor ? topAuthor[0] : 'Sin datos'],
+          ['Área con más estudios', topArea ? topArea[0] : 'Sin datos'],
+          ['Promedio de estudios por mes', `${(totalStudies / months).toFixed(1)} por mes`],
+          ['Estudios con documento', `${String(withDocuments)} (${percent(withDocuments, totalStudies)})`],
+          ['Estudios con imagen', `${String(withImages)} (${percent(withImages, totalStudies)})`],
         ],
-        tables: [{ headers: ['#', 'Investigador', 'Total', 'Estudios', 'Noticias', 'Porcentaje'], rows }],
+        tables: [
+          {
+            label: 'Total de estudios por investigador',
+            headers: ['Investigador', 'Cantidad'],
+            rows: Object.entries(studiesByInvestigator).map(([author, count]) => [author, String(count)]),
+          },
+          {
+            label: 'Total de estudios por categoría',
+            headers: ['Categoría', 'Cantidad'],
+            rows: Object.entries(studiesByCategory).map(([category, count]) => [category, String(count)]),
+          },
+          {
+            label: 'Estudios registrados',
+            headers: ['#', 'Título', 'Autor', 'Categoría', 'Fecha', 'Documento', 'Imagen'],
+            rows: records.map((item, index) => [
+              String(index + 1),
+              item.titulo || '',
+              getDisplayName(item.investigador?.user),
+              item.categoria || 'Sin categoría',
+              formatDate(item.created_at || item.updated_at),
+              item.documento ? 'Sí' : 'No',
+              item.foto ? 'Sí' : 'No',
+            ]),
+          },
+        ],
       });
+      return;
     }
+
+    if (activeReportTab === 'noticias') {
+      const filter = reportFilters.noticias;
+      const records = getFilteredNewsRecordsForReport();
+      const totalNews = records.length;
+      const newsByInvestigator = records.reduce((acc, item) => {
+        const key = getDisplayName(item.investigador?.user);
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      const topAuthors = Object.entries(newsByInvestigator)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+      const newsByMonth = records.reduce((acc, item) => {
+        const date = new Date(item.fecha || item.created_at);
+        if (Number.isNaN(date.getTime())) {
+          return acc;
+        }
+        const key = `${date.toLocaleString('es-MX', { month: 'short' })} ${date.getFullYear()}`;
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      const withImage = records.filter((item) => Boolean(item.foto)).length;
+      const uniqueAuthors = Object.keys(newsByInvestigator).length;
+
+      downloadPdfReport({
+        filename: 'reporte-noticias-avanzado.pdf',
+        title: 'Reporte de noticias',
+        subtitle: 'Estadísticas de noticias por autor, mes y porcentaje de imagen publicada.',
+        summary: [
+          ['Total de noticias en el rango', String(totalNews)],
+          ['Noticias con imagen publicada', `${String(withImage)} (${percent(withImage, totalNews)})`],
+          ['Promedio de noticias por investigador', `${uniqueAuthors ? (totalNews / uniqueAuthors).toFixed(1) : '0.0'}`],
+          ['Periodo', `${filter.from || 'inicio'} - ${filter.to || 'fin'}`],
+        ],
+        tables: [
+          {
+            label: 'Noticias por investigador',
+            headers: ['Investigador', 'Cantidad'],
+            rows: Object.entries(newsByInvestigator).map(([author, count]) => [author, String(count)]),
+          },
+          {
+            label: 'Top 3 autores con más noticias',
+            headers: ['Autor', 'Cantidad'],
+            rows: topAuthors.map(([author, count]) => [author, String(count)]),
+          },
+          {
+            label: 'Noticias por mes',
+            headers: ['Mes', 'Cantidad'],
+            rows: Object.entries(newsByMonth).map(([period, count]) => [period, String(count)]),
+          },
+        ],
+      });
+      return;
+    }
+
+    const filter = reportFilters.publicaciones;
+    const { studies, news } = getFilteredPublicationRecordsForReport();
+    const totalProjects = studies.length;
+    const totalPublications = studies.length + news.length;
+    const publicationsByArea = [...studies, ...news].reduce((acc, item) => {
+      const key = item.investigador?.area_investigacion || 'Sin área';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const studyProjectsByInvestigator = studies.reduce((acc, item) => {
+      const key = getDisplayName(item.investigador?.user);
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const projectRanking = Object.entries(studyProjectsByInvestigator)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+    const topArea = Object.entries(publicationsByArea).sort((a, b) => b[1] - a[1])[0];
+    const averagePublicationsByProject = totalProjects ? (totalPublications / totalProjects).toFixed(1) : '0.0';
+
+    downloadPdfReport({
+      filename: 'reporte-publicaciones-avanzado.pdf',
+      title: 'Reporte de proyectos y publicaciones',
+      subtitle: 'Incluye proyectos registrados, ranking de investigadores y distribución por área.',
+      summary: [
+        ['Total de proyectos registrados', String(totalProjects)],
+        ['Total de publicaciones en el rango', String(totalPublications)],
+        ['Promedio de publicaciones por proyecto', averagePublicationsByProject],
+        ['Área con más publicaciones', topArea ? topArea[0] : 'Sin datos'],
+        ['Periodo', `${filter.from || 'inicio'} - ${filter.to || 'fin'}`],
+      ],
+      tables: [
+        {
+          label: 'Ranking de investigadores con más proyectos',
+          headers: ['#', 'Investigador', 'Proyectos'],
+          rows: projectRanking.map((item, index) => [String(index + 1), item.name, String(item.count)]),
+        },
+        {
+          label: 'Total de publicaciones por área',
+          headers: ['Área', 'Publicaciones', 'Porcentaje'],
+          rows: Object.entries(publicationsByArea).map(([area, count]) => [area, String(count), percent(count, totalPublications)]),
+        },
+      ],
+    });
+    return;
+  };
+
+  const renderReportSection = () => {
+    if (activeReportTab === 'investigadores') {
+      const filter = reportFilters.investigadores;
+      const selectedInvestigadores = getFilteredInvestigadoresForReport();
+      const totalInvestigadores = selectedInvestigadores.length;
+      const publications = selectedInvestigadores.map((item) => {
+        const studiesCount = estudios.filter(
+          (study) => Number(study.investigador_id) === Number(item.id) && matchesDateRange(study.created_at || study.updated_at, filter.from, filter.to),
+        ).length;
+        const newsCount = noticias.filter(
+          (newsItem) => Number(newsItem.investigador_id) === Number(item.id) && matchesDateRange(newsItem.fecha || newsItem.created_at, filter.from, filter.to),
+        ).length;
+        return {
+          total: studiesCount + newsCount,
+        };
+      });
+      const totalPublicaciones = publications.reduce((acc, item) => acc + item.total, 0);
+
+      return renderReportMetricCards([
+        { label: 'Investigadores incluidos', value: totalInvestigadores },
+        { label: 'Publicaciones en el periodo', value: totalPublicaciones },
+        { label: 'Promedio por investigador', value: `${totalInvestigadores ? (totalPublicaciones / totalInvestigadores).toFixed(1) : '0.0'}` },
+        { label: 'Periodo', value: `${filter.from || 'inicio'} - ${filter.to || 'fin'}` },
+      ]);
+    }
+
+    if (activeReportTab === 'estudios') {
+      const filter = reportFilters.estudios;
+      const records = getFilteredStudyRecordsForReport();
+      const totalStudies = records.length;
+      const withDocument = records.filter((item) => Boolean(item.documento)).length;
+      const withImage = records.filter((item) => Boolean(item.foto)).length;
+      const months = getMonthsInRange(filter.from, filter.to);
+      const byInvestigator = records.reduce((acc, item) => {
+        const key = getDisplayName(item.investigador?.user);
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      const byArea = records.reduce((acc, item) => {
+        const key = item.investigador?.area_investigacion || 'Sin área';
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      const topAuthor = Object.entries(byInvestigator).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Sin datos';
+      const topArea = Object.entries(byArea).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Sin datos';
+
+      return renderReportMetricCards([
+        { label: 'Total de estudios', value: totalStudies },
+        { label: 'Autor con más estudios', value: topAuthor },
+        { label: 'Área con más estudios', value: topArea },
+        { label: 'Promedio por mes', value: `${(totalStudies / months).toFixed(1)}` },
+        { label: 'Con documento adjunto', value: `${percent(withDocument, totalStudies)}` },
+        { label: 'Con imagen publicada', value: `${percent(withImage, totalStudies)}` },
+      ]);
+    }
+
+    if (activeReportTab === 'noticias') {
+      const filter = reportFilters.noticias;
+      const records = getFilteredNewsRecordsForReport();
+      const totalNews = records.length;
+      const authors = records.reduce((acc, item) => {
+        const key = getDisplayName(item.investigador?.user);
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      const topAuthor = Object.entries(authors).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Sin datos';
+      const withImage = records.filter((item) => Boolean(item.foto)).length;
+      const uniqueAuthors = Object.keys(authors).length;
+
+      return renderReportMetricCards([
+        { label: 'Total de noticias', value: totalNews },
+        { label: 'Top autor', value: topAuthor },
+        { label: 'Noticias con imagen', value: `${percent(withImage, totalNews)}` },
+        { label: 'Promedio por investigador', value: `${uniqueAuthors ? (totalNews / uniqueAuthors).toFixed(1) : '0.0'}` },
+        { label: 'Periodo', value: `${filter.from || 'inicio'} - ${filter.to || 'fin'}` },
+      ]);
+    }
+
+    const filter = reportFilters.publicaciones;
+    const { studies, news } = getFilteredPublicationRecordsForReport();
+    const totalProjects = studies.length;
+    const totalPublications = studies.length + news.length;
+    const publicationsByArea = [...studies, ...news].reduce((acc, item) => {
+      const key = item.investigador?.area_investigacion || 'Sin área';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const topArea = Object.entries(publicationsByArea).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Sin datos';
+    const averagePublicationsByProject = totalProjects ? (totalPublications / totalProjects).toFixed(1) : '0.0';
+
+    return renderReportMetricCards([
+      { label: 'Total de proyectos', value: totalProjects },
+      { label: 'Total de publicaciones', value: totalPublications },
+      { label: 'Área con más publicaciones', value: topArea },
+      { label: 'Promedio publicaciones por proyecto', value: averagePublicationsByProject },
+      { label: 'Periodo', value: `${filter.from || 'inicio'} - ${filter.to || 'fin'}` },
+    ]);
   };
 
   const exportSectionReport = (sectionId) => {
@@ -1197,82 +1459,213 @@ export default function Dashboard({ user, onLogout }) {
         </article>
       </section>
 
-      <section className="dashboard-section panel management-panel">
+      <section className="dashboard-section panel management-panel admin-report-section">
         <div className="section-head">
           <div>
-            <h2>Reportes avanzados</h2>
-            <p>Filtra por investigador y rango de fechas para obtener porcentajes, rankings y resúmenes institucionales.</p>
-          </div>
-          <button type="button" className="solid-link" onClick={buildInvestigatorReport}>
-            Generar PDF
-          </button>
-        </div>
-
-        {reportStatus.error ? <p className="status-box">{reportStatus.error}</p> : null}
-        {reportStatus.success ? <p className="status-box">{reportStatus.success}</p> : null}
-
-        <div className="form-grid form-grid--two">
-          <div>
-            <label htmlFor="report-type">Tipo de reporte</label>
-            <select
-              id="report-type"
-              className="form-select"
-              value={reportConfig.type}
-              onChange={(event) => setReportConfig((previous) => ({ ...previous, type: event.target.value }))}
-            >
-              <option value="publicaciones-investigador">Publicaciones por investigador</option>
-              <option value="proyectos-investigador">Proyectos por investigador</option>
-              <option value="estudios-investigador">Estudios por investigador</option>
-              <option value="noticias-investigador">Noticias por investigador</option>
-              <option value="ranking-investigadores">Ranking de investigadores</option>
-              <option value="areas-publicaciones">Publicaciones por área</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="report-investigator">Investigador</label>
-            <select
-              id="report-investigator"
-              className="form-select"
-              value={reportConfig.investigadorId}
-              onChange={(event) => setReportConfig((previous) => ({ ...previous, investigadorId: event.target.value }))}
-            >
-              <option value="">Selecciona un investigador</option>
-              {reportInvestigatorOptions.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
+            <h2>Reportes administrativos</h2>
+            <p>Genera reportes con estadísticas y resúmenes por investigador, estudio, noticia o publicaciones.</p>
           </div>
         </div>
 
-        <div className="form-grid form-grid--two">
-          <div>
-            <label htmlFor="report-from">Fecha inicio</label>
-            <input
-              id="report-from"
-              className="form-input"
-              type="date"
-              value={reportConfig.from}
-              onChange={(event) => setReportConfig((previous) => ({ ...previous, from: event.target.value }))}
-            />
-          </div>
-          <div>
-            <label htmlFor="report-to">Fecha fin</label>
-            <input
-              id="report-to"
-              className="form-input"
-              type="date"
-              value={reportConfig.to}
-              onChange={(event) => setReportConfig((previous) => ({ ...previous, to: event.target.value }))}
-            />
+        <div className="report-panel">
+          <section className="tab-bar">
+            {REPORT_SECTIONS.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={`tab-button ${activeReportTab === section.id ? 'is-active' : ''}`}
+                onClick={() => setActiveReportTab(section.id)}
+              >
+                {section.label}
+              </button>
+            ))}
+          </section>
+
+          {reportStatus.error ? <p className="status-box">{reportStatus.error}</p> : null}
+          {reportStatus.success ? <p className="status-box">{reportStatus.success}</p> : null}
+
+          <div className="report-tab-content">
+            {activeReportTab === 'investigadores' ? (
+              <div>
+                <div className="section-head">
+                  <div>
+                    <h3>Reporte de investigadores</h3>
+                    <p>Filtra por nombre, grado académico o área para obtener totales y ranking de investigadores.</p>
+                  </div>
+                  <button type="button" className="solid-link" onClick={() => buildAdminReport()}>
+                    Generar PDF
+                  </button>
+                </div>
+
+                <div className="form-grid form-grid--two">
+                  <input
+                    className="search-input"
+                    placeholder="Buscar investigador"
+                    value={reportFilters.investigadores.search}
+                    onChange={(event) => setReportFilter('investigadores', { search: event.target.value })}
+                  />
+                  <input
+                    className="search-input"
+                    placeholder="Filtrar por grado académico"
+                    value={reportFilters.investigadores.nivel}
+                    onChange={(event) => setReportFilter('investigadores', { nivel: event.target.value })}
+                  />
+                </div>
+                <div className="form-grid form-grid--two">
+                  <input
+                    className="search-input"
+                    placeholder="Filtrar por área"
+                    value={reportFilters.investigadores.area}
+                    onChange={(event) => setReportFilter('investigadores', { area: event.target.value })}
+                  />
+                  <div className="form-grid form-grid--two">
+                    <input
+                      className="form-input"
+                      type="date"
+                      value={reportFilters.investigadores.from}
+                      onChange={(event) => setReportFilter('investigadores', { from: event.target.value })}
+                    />
+                    <input
+                      className="form-input"
+                      type="date"
+                      value={reportFilters.investigadores.to}
+                      onChange={(event) => setReportFilter('investigadores', { to: event.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {renderReportSection()}
+              </div>
+            ) : activeReportTab === 'estudios' ? (
+              <div>
+                <div className="section-head">
+                  <div>
+                    <h3>Reporte de estudios</h3>
+                    <p>Analiza estudios por autor, categoría y rango de fechas con métricas de documento y área.</p>
+                  </div>
+                  <button type="button" className="solid-link" onClick={() => buildAdminReport()}>
+                    Generar PDF
+                  </button>
+                </div>
+
+                <div className="form-grid form-grid--two">
+                  <input
+                    className="search-input"
+                    placeholder="Filtrar por autor"
+                    value={reportFilters.estudios.autor}
+                    onChange={(event) => setReportFilter('estudios', { autor: event.target.value })}
+                  />
+                  <input
+                    className="search-input"
+                    placeholder="Filtrar por categoría"
+                    value={reportFilters.estudios.categoria}
+                    onChange={(event) => setReportFilter('estudios', { categoria: event.target.value })}
+                  />
+                </div>
+                <div className="form-grid form-grid--two">
+                  <input
+                    className="form-input"
+                    type="date"
+                    value={reportFilters.estudios.from}
+                    onChange={(event) => setReportFilter('estudios', { from: event.target.value })}
+                  />
+                  <input
+                    className="form-input"
+                    type="date"
+                    value={reportFilters.estudios.to}
+                    onChange={(event) => setReportFilter('estudios', { to: event.target.value })}
+                  />
+                </div>
+
+                {renderReportSection()}
+              </div>
+            ) : activeReportTab === 'noticias' ? (
+              <div>
+                <div className="section-head">
+                  <div>
+                    <h3>Reporte de noticias</h3>
+                    <p>Revisa tendencias de noticias por autor y por mes, con indicadores de imagen y promedio por investigador.</p>
+                  </div>
+                  <button type="button" className="solid-link" onClick={() => buildAdminReport()}>
+                    Generar PDF
+                  </button>
+                </div>
+
+                <div className="form-grid form-grid--two">
+                  <input
+                    className="search-input"
+                    placeholder="Filtrar por autor"
+                    value={reportFilters.noticias.autor}
+                    onChange={(event) => setReportFilter('noticias', { autor: event.target.value })}
+                  />
+                  <div className="form-grid form-grid--two">
+                    <input
+                      className="form-input"
+                      type="date"
+                      value={reportFilters.noticias.from}
+                      onChange={(event) => setReportFilter('noticias', { from: event.target.value })}
+                    />
+                    <input
+                      className="form-input"
+                      type="date"
+                      value={reportFilters.noticias.to}
+                      onChange={(event) => setReportFilter('noticias', { to: event.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {renderReportSection()}
+              </div>
+            ) : (
+              <div>
+                <div className="section-head">
+                  <div>
+                    <h3>Reporte de proyectos / publicaciones</h3>
+                    <p>Genera estadísticas combinadas de proyectos, publicaciones y áreas por investigador.</p>
+                  </div>
+                  <button type="button" className="solid-link" onClick={() => buildAdminReport()}>
+                    Generar PDF
+                  </button>
+                </div>
+
+                <div className="form-grid form-grid--two">
+                  <div>
+                    <label htmlFor="report-investigator">Investigador</label>
+                    <select
+                      id="report-investigator"
+                      className="form-select"
+                      value={reportFilters.publicaciones.investigadorId}
+                      onChange={(event) => setReportFilter('publicaciones', { investigadorId: event.target.value })}
+                    >
+                      <option value="">Todos los investigadores</option>
+                      {reportInvestigatorOptions.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-grid form-grid--two">
+                    <input
+                      className="form-input"
+                      type="date"
+                      value={reportFilters.publicaciones.from}
+                      onChange={(event) => setReportFilter('publicaciones', { from: event.target.value })}
+                    />
+                    <input
+                      className="form-input"
+                      type="date"
+                      value={reportFilters.publicaciones.to}
+                      onChange={(event) => setReportFilter('publicaciones', { to: event.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {renderReportSection()}
+              </div>
+            )}
           </div>
         </div>
-
-        <p className="muted-text">
-          Incluye métricas como porcentajes de participación, totales, ranking de investigadores y área con mayor producción.
-        </p>
       </section>
 
       <section className="dashboard-section panel management-panel">
