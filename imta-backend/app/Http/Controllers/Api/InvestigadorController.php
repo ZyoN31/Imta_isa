@@ -126,6 +126,7 @@ class InvestigadorController extends Controller
                 }
 
                 if (! empty($updates)) {
+                    $updates['rol'] = 'investigador';
                     $user->update($updates);
                 }
             }

@@ -1,6 +1,6 @@
-import { FiBookOpen, FiHome, FiLogOut, FiMessageSquare, FiSearch, FiUsers } from 'react-icons/fi';
+import { FiBookOpen, FiHome, FiLogOut, FiMessageSquare, FiSearch, FiUser, FiUsers } from 'react-icons/fi';
 import { Link, NavLink } from 'react-router-dom';
-import { getDisplayName, getRoleLabel } from '../../services/api';
+import { getDisplayName, getRoleLabel, resolveBackendUrl } from '../../services/api';
 
 const baseNavigation = [
   { to: '/', label: 'Inicio', icon: FiHome, end: true },
@@ -11,7 +11,26 @@ const baseNavigation = [
 
 export default function InstitutionLayout({ user, onLogout, children }) {
   const navigation = user?.rol
-    ? [...baseNavigation, { to: user.rol === 'administrador' ? '/admin' : '/investigador', label: 'Panel', icon: FiSearch }]
+    ? [
+        ...baseNavigation,
+        user.rol === 'investigador'
+          ? {
+              to: '/mis-publicaciones',
+              label: 'Mis publicaciones',
+              icon: FiBookOpen,
+            }
+          : null,
+        {
+          to:
+            user.rol === 'administrador'
+              ? '/admin'
+              : user.rol === 'investigador'
+                ? '/investigador'
+                : '/perfil',
+          label: user.rol === 'consultor' ? 'Mi perfil' : 'Panel',
+          icon: user.rol === 'consultor' ? FiUser : FiSearch,
+        },
+      ].filter(Boolean)
     : baseNavigation;
 
   return (
@@ -45,7 +64,13 @@ export default function InstitutionLayout({ user, onLogout, children }) {
 
           {user ? (
             <div className="user-chip">
-              <div className="user-chip__avatar">{getDisplayName(user).charAt(0)}</div>
+              <div className="user-chip__avatar">
+                {user.foto ? (
+                  <img src={resolveBackendUrl(user.foto)} alt={getDisplayName(user)} />
+                ) : (
+                  <span>{getDisplayName(user).charAt(0)}</span>
+                )}
+              </div>
               <div>
                 <p className="user-chip__name">{getDisplayName(user)}</p>
                 <p className="user-chip__role">{getRoleLabel(user.rol)}</p>

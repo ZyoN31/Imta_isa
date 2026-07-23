@@ -26,7 +26,7 @@ export default function RegistroConsultores({ user, onAuth }) {
     try {
       const payload = await registerUser(form);
       onAuth(payload);
-      navigate('/', { replace: true });
+      navigate('/perfil', { replace: true });
     } catch (requestError) {
       setStatus({ loading: false, error: formatApiError(requestError) });
       return;

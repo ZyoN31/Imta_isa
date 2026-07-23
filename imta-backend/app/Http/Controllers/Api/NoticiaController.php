@@ -58,13 +58,31 @@ class NoticiaController extends Controller
 
     public function update(Request $request, Noticia $noticia): JsonResponse
     {
+        $isResearcher = $request->user()->rol === 'investigador';
+
+        if ($isResearcher && (int) $noticia->investigador_id !== (int) $request->user()->investigador_id) {
+            return response()->json(['message' => 'Solo puedes editar noticias publicadas por tu cuenta.'], 403);
+        }
+
         $validated = $request->validate([
             'titulo' => 'required|string|max:200',
             'contenido' => 'required|string',
             'fecha' => 'required|date',
-            'investigador_id' => 'required|exists:investigadores,id',
+            'investigador_id' => ($isResearcher ? 'nullable' : 'required').'|exists:investigadores,id',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:3072',
         ]);
+
+        if ($isResearcher) {
+            $investigadorId = $request->user()->investigador_id;
+
+            if (! $investigadorId) {
+                return response()->json([
+                    'message' => 'Tu cuenta no está vinculada a un investigador. Contacta al administrador.',
+                ], 422);
+            }
+
+            $validated['investigador_id'] = $investigadorId;
+        }
 
         if ($request->hasFile('foto')) {
             $this->eliminarFoto($noticia->foto);
@@ -79,8 +97,14 @@ class NoticiaController extends Controller
         ], 200);
     }
 
-    public function destroy(Noticia $noticia): JsonResponse
+    public function destroy(Request $request, Noticia $noticia): JsonResponse
     {
+        $isResearcher = $request->user()->rol === 'investigador';
+
+        if ($isResearcher && (int) $noticia->investigador_id !== (int) $request->user()->investigador_id) {
+            return response()->json(['message' => 'Solo puedes eliminar noticias publicadas por tu cuenta.'], 403);
+        }
+
         $this->eliminarFoto($noticia->foto);
         $noticia->delete();
 

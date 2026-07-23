@@ -110,6 +110,14 @@ export async function fetchCurrentUser() {
   return data;
 }
 
+export async function updateCurrentUser(payload) {
+  const formData = buildMultipartPayload({ ...payload, _method: 'PUT' });
+  const { data } = await api.post('/me', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 export async function login(credentials) {
   const { data } = await api.post('/login', credentials);
   return data;
@@ -198,8 +206,24 @@ export async function deleteEstudio(id) {
   return data;
 }
 
+export async function updateEstudio(id, payload) {
+  const formData = buildMultipartPayload({ ...payload, _method: 'PUT' });
+  const { data } = await api.post(`/estudios/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 export async function deleteNoticia(id) {
   const { data } = await api.delete(`/noticias/${id}`);
+  return data;
+}
+
+export async function updateNoticia(id, payload) {
+  const formData = buildMultipartPayload({ ...payload, _method: 'PUT' });
+  const { data } = await api.post(`/noticias/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return data;
 }
 

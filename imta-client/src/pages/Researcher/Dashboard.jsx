@@ -13,7 +13,7 @@ function formatDateInput() {
 }
 
 export default function Dashboard({ user, onLogout }) {
-  const researcherId = user?.investigador?.id ?? null;
+  const researcherId = user?.investigador_id ?? user?.investigador?.id ?? null;
   const [estudios, setEstudios] = useState([]);
   const [noticias, setNoticias] = useState([]);
   const [status, setStatus] = useState({ loading: true, error: '', success: '' });

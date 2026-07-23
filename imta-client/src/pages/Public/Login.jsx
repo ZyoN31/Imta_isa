@@ -12,6 +12,10 @@ function resolveRouteByRole(role) {
     return '/investigador';
   }
 
+  if (role === 'consultor') {
+    return '/perfil';
+  }
+
   return '/';
 }
 

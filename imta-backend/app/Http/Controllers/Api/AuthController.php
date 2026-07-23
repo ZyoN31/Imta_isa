@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -58,7 +60,7 @@ class AuthController extends Controller
             'message' => 'Sesión iniciada correctamente.',
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user,
+            'user' => $user->fresh()->load('investigador'),
         ], 200);
     }
 
@@ -72,6 +74,52 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return response()->json($request->user()->load('investigador'), 200);
+    }
+
+    public function updateMe(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:50',
+            'apellido_paterno' => 'required|string|max:50',
+            'apellido_materno' => 'nullable|string|max:50',
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
+            'password' => 'nullable|string|min:8|confirmed',
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:3072',
+        ]);
+
+        $updates = [
+            'nombre' => $validated['nombre'],
+            'apellido_paterno' => $validated['apellido_paterno'],
+            'apellido_materno' => $validated['apellido_materno'] ?? null,
+            'email' => $validated['email'],
+        ];
+
+        if (! empty($validated['password'])) {
+            $updates['password'] = $validated['password'];
+        }
+
+        if ($request->hasFile('foto')) {
+            if ($user->foto) {
+                Storage::disk('public')->delete(str_replace('/storage/', '', $user->foto));
+            }
+
+            $updates['foto'] = Storage::url($request->file('foto')->store('usuarios', 'public'));
+        }
+
+        $user->update($updates);
+
+        return response()->json([
+            'message' => 'Perfil actualizado con éxito.',
+            'data' => $user->fresh()->load('investigador'),
+        ], 200);
     }
 
     public function consultores(): JsonResponse

@@ -12,6 +12,8 @@ import Estudios from './pages/Public/Estudios';
 import Inicio from './pages/Public/Inicio';
 import Investigadores from './pages/Public/Investigadores';
 import Noticias from './pages/Public/Noticias';
+import PerfilConsultor from './pages/Public/PerfilConsultor';
+import MisPublicaciones from './pages/Researcher/MisPublicaciones';
 import ResearcherDashboard from './pages/Researcher/Dashboard';
 
 function RequireRole({ user, roles, children }) {
@@ -55,6 +57,11 @@ export default function App() {
     setUser(payload.user);
   };
 
+  const handleUserUpdate = (updatedUser) => {
+    setSession({ access_token: getStoredToken(), user: updatedUser });
+    setUser(updatedUser);
+  };
+
   const handleLogout = async () => {
     clearSession();
     setUser(null);
@@ -84,6 +91,14 @@ export default function App() {
         <Route path="/noticias" element={<Noticias user={user} onLogout={handleLogout} />} />
         <Route path="/noticias/:id" element={<DetalleNoticia user={user} onLogout={handleLogout} />} />
         <Route
+          path="/perfil"
+          element={(
+            <RequireRole user={user} roles={['consultor']}>
+              <PerfilConsultor user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />
+            </RequireRole>
+          )}
+        />
+        <Route
           path="/admin"
           element={(
             <RequireRole user={user} roles={['administrador']}>
@@ -96,6 +111,14 @@ export default function App() {
           element={(
             <RequireRole user={user} roles={['investigador', 'administrador']}>
               <ResearcherDashboard user={user} onLogout={handleLogout} />
+            </RequireRole>
+          )}
+        />
+        <Route
+          path="/mis-publicaciones"
+          element={(
+            <RequireRole user={user} roles={['investigador']}>
+              <MisPublicaciones user={user} onLogout={handleLogout} />
             </RequireRole>
           )}
         />

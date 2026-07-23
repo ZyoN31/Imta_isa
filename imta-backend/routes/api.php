@@ -20,6 +20,7 @@ Route::get('/noticias/{noticia}', [NoticiaController::class, 'show']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::put('/me', [AuthController::class, 'updateMe']);
 
     Route::post('/comentarios', [ComentarioController::class, 'store']);
     Route::put('/comentarios/{comentario}', [ComentarioController::class, 'update']);
