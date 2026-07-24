@@ -23,7 +23,7 @@ INSERT INTO `investigadores` (`id`, `nivel_academico`, `area_investigacion`, `se
 (5, 'Maestría', 'Instrumentación y Telemática Hidráulica', 'Ingeniero e investigador enfocado en la integración de sensores de velocidad Doppler (ADV), tomografía eléctrica y automatización de compuertas.', '/storage/investigadores/mbro_rodrigo_herrera.jpg', '2026-07-23 03:00:00', '2026-07-23 03:00:00', NULL);
 
 -- ========================================================
--- 2. POBLAR TABLA: users (Respetando tus datos exactos)
+-- 2. POBLAR TABLA: users
 -- ========================================================
 INSERT INTO `users` (`id`, `nombre`, `apellido_paterno`, `apellido_materno`, `email`, `email_verified_at`, `password`, `rol`, `investigador_id`, `foto`, `remember_token`, `created_at`, `updated_at`, `deleted_at`) VALUES
 (1, 'Admin IMTA', 'Laboratorio', 'Enzo Levi', 'admin@imta.gob.mx', NULL, '$2y$12$y6WRSAT9a2ygcfYCs6P2L.t9j4xVnv4Zi1Jn3mnUEsixqBJpsVDOm', 'administrador', NULL, NULL, NULL, '2026-07-23 03:27:28', '2026-07-23 03:27:28', NULL),
@@ -46,7 +46,7 @@ INSERT INTO `noticias` (`id`, `titulo`, `contenido`, `fecha`, `foto`, `investiga
 (6, 'Convenio Internacional para la Gestión Sustentable de Cuencas', 'Se firmó un acuerdo de colaboración con la red latinoamericana de laboratorios de hidráulica para compartir modelos computacionales y transferir tecnología en medición de sedimentos.', '2026-05-14', '/storage/noticias/convenio_internacional.jpg', 4, NOW(), NOW(), NULL),
 (7, 'Adquisición de Sensores PIV (Velocimetría por Imágenes de Partículas)', 'Llegó el nuevo equipo óptico de alta velocidad que permitirá visualizar y cuantificar patrones de flujo bidimensionales en zonas de vórtices dentro de modelos a escala reducida.', '2026-04-20', '/storage/noticias/sensores_piv.jpg', 5, NOW(), NOW(), NULL),
 (8, 'Taller de Capacitación en Análisis de Transitorios Hidráulicos', 'Inició el curso teórico-práctico impartido por especialistas de la coordinación de modelación, dirigido a ingenieros del sector público y estudiantes de posgrado.', '2026-03-11', '/storage/noticias/taller_transitorios.jpg', 2, NOW(), NOW(), NULL),
-(9, 'Simposio Nacional sobre Infraestructura Hidráulica Ante el Cambio Climático', 'Investigadores del IMTA presentaronponencias sobre el rediseño de vertederos ante crecidas extremas asociadas a eventos meteorológicos atípicos.', '2026-01-28', '/storage/noticias/simposio_infraestructura.jpg', 1, NOW(), NOW(), NULL),
+(9, 'Simposio Nacional sobre Infraestructura Hidráulica Ante el Cambio Climático', 'Investigadores del IMTA presentaron ponencias sobre el rediseño de vertederos ante crecidas extremas asociadas a eventos meteorológicos atípicos.', '2026-01-28', '/storage/noticias/simposio_infraestructura.jpg', 1, NOW(), NOW(), NULL),
 (10, 'Publicación del Manual de Operación de Canales de Olas', 'Está disponible en la biblioteca digital del IMTA la guía técnica para la parametrización de oleaje regular e irregular en el tanque experimental del Laboratorio Enzo Levi.', '2025-11-15', '/storage/noticias/manual_canal_olas.jpg', 3, NOW(), NOW(), NULL),
 (11, 'Evaluación de Bioconstrucciones para Protección de Margenes de Ríos', 'Finalizó la primera etapa del proyecto experimental que estudia la efectividad de los mantos de vegetación en la reducción de la erosión en curvas de cauces.', '2025-10-05', '/storage/noticias/proteccion_cauces.jpg', 4, NOW(), NOW(), NULL),
 (12, 'Pruebas de Calibración en Microturbinas para Generación Limpia', 'Se completaron los ensayos en el canal secundario para medir la eficiencia hidrodinámica de turbinas horizontales en corrientes de baja velocidad.', '2025-09-18', '/storage/noticias/microturbinas_hidraulicas.jpg', 5, NOW(), NOW(), NULL);
@@ -67,10 +67,10 @@ INSERT INTO `estudios` (`id`, `titulo`, `descripcion`, `categoria`, `foto`, `doc
 (10, 'Amortiguación de Olas mediante Barreras Sumergidas Porosas', 'Medición de coeficientes de transmisión y reflexión de oleaje al interactuar con escolleras permeables en el tanque de olas del laboratorio.', 'Hidráulica Experimental', '/storage/estudios/fotos/barreras_porosas.jpg', '/storage/estudios/documentos/barreras_porosas_estudio.pdf', 1, NOW(), NOW(), NULL);
 
 -- ========================================================
--- 5. POBLAR TABLA: comentarios (Muestra representativa)
+-- 5. POBLAR TABLA: comentarios (Muestra representativa corregida)
 -- ========================================================
-INSERT INTO `comentarios` (`id`, `contenido`, `user_id`, `noticia_id`, `estudio_id`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 'Excelente iniciativa. Los datos de calibración del banco de pruebas serán de gran ayuda para los proyectos de maestría.', 3, 1, NULL, NOW(), NOW(), NULL),
-(2, '¿Cuándo se reanudarán las pruebas de campo en el canal principal de olas?', 6, 3, NULL, NOW(), NOW(), NULL),
-(3, 'Los resultados del gráfico de socavación en el estudio 7 coinciden con nuestras simulaciones en software comercial.', 7, NULL, 7, NOW(), NOW(), NULL),
-(4, 'Un avance fundamental para la seguridad hidráulica de la infraestructura nacional.', 3, NULL, 1, NOW(), NOW(), NULL);
+INSERT INTO `comentarios` (`id`, `contenido`, `fecha`, `user_id`, `noticia_id`, `estudio_id`, `created_at`, `updated_at`, `deleted_at`) VALUES
+(1, 'Excelente iniciativa. Los datos de calibración del banco de pruebas serán de gran ayuda para los proyectos de maestría.', '2026-07-23', 3, 1, NULL, NOW(), NOW(), NULL),
+(2, '¿Cuándo se reanudarán las pruebas de campo en el canal principal de olas?', '2026-07-23', 6, 3, NULL, NOW(), NOW(), NULL),
+(3, 'Los resultados del gráfico de socavación en el estudio 7 coinciden con nuestras simulaciones en software comercial.', '2026-07-23', 7, NULL, 7, NOW(), NOW(), NULL),
+(4, 'Un avance fundamental para la seguridad hidráulica de la infraestructura nacional.', '2026-07-23', 3, NULL, 1, NOW(), NOW(), NULL);

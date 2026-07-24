@@ -140,7 +140,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'Solo se pueden eliminar cuentas de consultores.'], 422);
         }
 
-        $user->delete();
+        $user->forceDelete();
 
         return response()->json(['message' => 'Consultor eliminado de los registros.'], 200);
     }

@@ -55,7 +55,7 @@ class ComentarioController extends Controller
             return response()->json(['message' => 'No tienes autorización para eliminar este comentario.'], 403);
         }
 
-        $comentario->delete();
+        $comentario->forceDelete();
 
         return response()->json(['message' => 'Comentario eliminado.'], 200);
     }

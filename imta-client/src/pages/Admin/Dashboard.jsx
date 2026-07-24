@@ -86,6 +86,27 @@ function percent(part, total) {
   return `${((part / total) * 100).toFixed(1)}%`;
 }
 
+function matchesMonthYear(value, month, year) {
+  if (!value || (!month && !year)) {
+    return true;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  if (month && date.getMonth() + 1 !== Number(month)) {
+    return false;
+  }
+
+  if (year && date.getFullYear() !== Number(year)) {
+    return false;
+  }
+
+  return true;
+}
+
 function downloadPdfReport({ filename, title, subtitle, summary = [], tables = [], headers, rows }) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
 
@@ -218,10 +239,10 @@ export default function Dashboard({ user, onLogout }) {
   });
   const [filters, setFilters] = useState({
     investigadores: { search: '', nivel: '', area: '' },
-    consultores: { search: '', email: '' },
-    estudios: { search: '', autor: '', categoria: '', from: '', to: '' },
-    noticias: { search: '', autor: '', from: '', to: '' },
-    comentarios: { search: '', usuario: '', tipo: '', from: '', to: '' },
+    consultores: { search: '', email: '', mes: '', anio: '' },
+    estudios: { search: '', autor: '', categoria: '', mes: '', anio: '' },
+    noticias: { search: '', autor: '', mes: '', anio: '' },
+    comentarios: { search: '', usuario: '', tipo: '', publicacion: '', mes: '', anio: '' },
   });
 
   useEffect(() => {
@@ -284,9 +305,11 @@ export default function Dashboard({ user, onLogout }) {
     return consultores.filter((item) => {
       const name = normalize(getDisplayName(item));
       const email = normalize(item.email);
+      const createdAt = item.created_at || item.updated_at;
       const matchesSearch = !search || name.includes(search) || email.includes(search);
       const matchesEmail = !emailFilter || email.includes(emailFilter);
-      return matchesSearch && matchesEmail;
+      const matchesDate = matchesMonthYear(createdAt, filter.mes, filter.anio);
+      return matchesSearch && matchesEmail && matchesDate;
     });
   }, [consultores, filters.consultores]);
 
@@ -305,7 +328,7 @@ export default function Dashboard({ user, onLogout }) {
       const matchesSearch = !query || [title, author, category].some((value) => value.includes(query));
       const matchesAutor = !autor || author.includes(autor);
       const matchesCategoria = !categoria || category.includes(categoria);
-      const matchesDate = (!filter.from && !filter.to) || matchesDateRange(dateValue, filter.from, filter.to);
+      const matchesDate = matchesMonthYear(dateValue, filter.mes, filter.anio);
 
       return matchesSearch && matchesAutor && matchesCategoria && matchesDate;
     });
@@ -323,7 +346,7 @@ export default function Dashboard({ user, onLogout }) {
 
       const matchesSearch = !query || [title, author].some((value) => value.includes(query));
       const matchesAutor = !autor || author.includes(autor);
-      const matchesDate = (!filter.from && !filter.to) || matchesDateRange(dateValue, filter.from, filter.to);
+      const matchesDate = matchesMonthYear(dateValue, filter.mes, filter.anio);
 
       return matchesSearch && matchesAutor && matchesDate;
     });
@@ -334,6 +357,7 @@ export default function Dashboard({ user, onLogout }) {
     const query = normalize(filter.search);
     const usuario = normalize(filter.usuario);
     const tipo = normalize(filter.tipo);
+    const publicacion = normalize(filter.publicacion);
 
     return comentarios.filter((item) => {
       const content = normalize(item.contenido);
@@ -345,9 +369,10 @@ export default function Dashboard({ user, onLogout }) {
       const matchesSearch = !query || [content, userName, sourceTitle].some((value) => value.includes(query));
       const matchesUsuario = !usuario || userName.includes(usuario);
       const matchesTipo = !tipo || sourceType.includes(tipo);
-      const matchesDate = (!filter.from && !filter.to) || matchesDateRange(dateValue, filter.from, filter.to);
+      const matchesPublicacion = !publicacion || sourceTitle.includes(publicacion);
+      const matchesDate = matchesMonthYear(dateValue, filter.mes, filter.anio);
 
-      return matchesSearch && matchesUsuario && matchesTipo && matchesDate;
+      return matchesSearch && matchesUsuario && matchesTipo && matchesPublicacion && matchesDate;
     });
   }, [comentarios, filters.comentarios]);
 
@@ -577,20 +602,6 @@ export default function Dashboard({ user, onLogout }) {
       setStatus((previous) => ({ ...previous, error: formatApiError(requestError), success: '' }));
     }
   };
-
-  const getFilteredStudyRecords = (investigatorId, from, to) =>
-    estudios.filter((item) => {
-      const matchesResearcher = !investigatorId || Number(item.investigador_id) === Number(investigatorId);
-      const matchesDate = matchesDateRange(item.created_at || item.updated_at, from, to);
-      return matchesResearcher && matchesDate;
-    });
-
-  const getFilteredNewsRecords = (investigatorId, from, to) =>
-    noticias.filter((item) => {
-      const matchesResearcher = !investigatorId || Number(item.investigador_id) === Number(investigatorId);
-      const matchesDate = matchesDateRange(item.fecha || item.created_at, from, to);
-      return matchesResearcher && matchesDate;
-    });
 
   const renderReportMetricCards = (metrics) => (
     <section className="cards-grid">
@@ -1138,6 +1149,44 @@ export default function Dashboard({ user, onLogout }) {
         />
       </div>
 
+      <div className="form-grid form-grid--two">
+        <div>
+          <label htmlFor="consultores-mes">Mes de registro</label>
+          <select
+            id="consultores-mes"
+            className="form-select"
+            value={filters.consultores.mes}
+            onChange={(event) => setSectionFilter('consultores', { mes: event.target.value })}
+          >
+            <option value="">Todos los meses</option>
+            <option value="1">Enero</option>
+            <option value="2">Febrero</option>
+            <option value="3">Marzo</option>
+            <option value="4">Abril</option>
+            <option value="5">Mayo</option>
+            <option value="6">Junio</option>
+            <option value="7">Julio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="consultores-anio">Año de registro</label>
+          <input
+            id="consultores-anio"
+            className="form-input"
+            type="number"
+            min="2000"
+            placeholder="Año"
+            value={filters.consultores.anio}
+            onChange={(event) => setSectionFilter('consultores', { anio: event.target.value })}
+          />
+        </div>
+      </div>
+
       <div className="table-scroll">
         <table className="data-table">
           <thead>
@@ -1206,21 +1255,44 @@ export default function Dashboard({ user, onLogout }) {
           onChange={(event) => setSectionFilter('estudios', { categoria: event.target.value })}
         />
         <div className="form-grid form-grid--two">
-          <input
-            className="form-input"
-            type="date"
-            value={filters.estudios.from}
-            onChange={(event) => setSectionFilter('estudios', { from: event.target.value })}
-          />
-          <input
-            className="form-input"
-            type="date"
-            value={filters.estudios.to}
-            onChange={(event) => setSectionFilter('estudios', { to: event.target.value })}
-          />
+          <div>
+            <label htmlFor="estudios-mes">Mes de publicación</label>
+            <select
+              id="estudios-mes"
+              className="form-select"
+              value={filters.estudios.mes}
+              onChange={(event) => setSectionFilter('estudios', { mes: event.target.value })}
+            >
+              <option value="">Todos los meses</option>
+              <option value="1">Enero</option>
+              <option value="2">Febrero</option>
+              <option value="3">Marzo</option>
+              <option value="4">Abril</option>
+              <option value="5">Mayo</option>
+              <option value="6">Junio</option>
+              <option value="7">Julio</option>
+              <option value="8">Agosto</option>
+              <option value="9">Septiembre</option>
+              <option value="10">Octubre</option>
+              <option value="11">Noviembre</option>
+              <option value="12">Diciembre</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="estudios-anio">Año de publicación</label>
+            <input
+              id="estudios-anio"
+              className="form-input"
+              type="number"
+              min="2000"
+              placeholder="Año"
+              value={filters.estudios.anio}
+              onChange={(event) => setSectionFilter('estudios', { anio: event.target.value })}
+            />
+          </div>
         </div>
       </div>
-      <p className="muted-text">Filtros opcionales para refinar el PDF: autor, clasificación y fecha de publicación.</p>
+      <p className="muted-text">Filtros opcionales para refinar el PDF: autor, categoría y fecha de publicación.</p>
 
       <div className="table-scroll">
         <table className="data-table">
@@ -1293,18 +1365,41 @@ export default function Dashboard({ user, onLogout }) {
       </div>
 
       <div className="form-grid form-grid--two">
-        <input
-          className="form-input"
-          type="date"
-          value={filters.noticias.from}
-          onChange={(event) => setSectionFilter('noticias', { from: event.target.value })}
-        />
-        <input
-          className="form-input"
-          type="date"
-          value={filters.noticias.to}
-          onChange={(event) => setSectionFilter('noticias', { to: event.target.value })}
-        />
+        <div>
+          <label htmlFor="noticias-mes">Mes de publicación</label>
+          <select
+            id="noticias-mes"
+            className="form-select"
+            value={filters.noticias.mes}
+            onChange={(event) => setSectionFilter('noticias', { mes: event.target.value })}
+          >
+            <option value="">Todos los meses</option>
+            <option value="1">Enero</option>
+            <option value="2">Febrero</option>
+            <option value="3">Marzo</option>
+            <option value="4">Abril</option>
+            <option value="5">Mayo</option>
+            <option value="6">Junio</option>
+            <option value="7">Julio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="noticias-anio">Año de publicación</label>
+          <input
+            id="noticias-anio"
+            className="form-input"
+            type="number"
+            min="2000"
+            placeholder="Año"
+            value={filters.noticias.anio}
+            onChange={(event) => setSectionFilter('noticias', { anio: event.target.value })}
+          />
+        </div>
       </div>
       <p className="muted-text">Filtros opcionales para refinar el PDF: autor y fecha de publicación.</p>
 
@@ -1374,25 +1469,57 @@ export default function Dashboard({ user, onLogout }) {
           value={filters.comentarios.tipo}
           onChange={(event) => setSectionFilter('comentarios', { tipo: event.target.value })}
         >
-          <option value="">Todos</option>
+          <option value="">Todos los tipos</option>
           <option value="estudio">Estudios</option>
           <option value="noticia">Noticias</option>
         </select>
-        <div className="form-grid form-grid--two">
+        <input
+          className="search-input"
+          placeholder="Filtrar por publicación"
+          value={filters.comentarios.publicacion}
+          onChange={(event) => setSectionFilter('comentarios', { publicacion: event.target.value })}
+        />
+      </div>
+
+      <div className="form-grid form-grid--two">
+        <div>
+          <label htmlFor="comentarios-mes">Mes de publicación</label>
+          <select
+            id="comentarios-mes"
+            className="form-select"
+            value={filters.comentarios.mes}
+            onChange={(event) => setSectionFilter('comentarios', { mes: event.target.value })}
+          >
+            <option value="">Todos los meses</option>
+            <option value="1">Enero</option>
+            <option value="2">Febrero</option>
+            <option value="3">Marzo</option>
+            <option value="4">Abril</option>
+            <option value="5">Mayo</option>
+            <option value="6">Junio</option>
+            <option value="7">Julio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="comentarios-anio">Año de publicación</label>
           <input
+            id="comentarios-anio"
             className="form-input"
-            type="date"
-            value={filters.comentarios.from}
-            onChange={(event) => setSectionFilter('comentarios', { from: event.target.value })}
-          />
-          <input
-            className="form-input"
-            type="date"
-            value={filters.comentarios.to}
-            onChange={(event) => setSectionFilter('comentarios', { to: event.target.value })}
+            type="number"
+            min="2000"
+            placeholder="Año"
+            value={filters.comentarios.anio}
+            onChange={(event) => setSectionFilter('comentarios', { anio: event.target.value })}
           />
         </div>
       </div>
+
+      <p className="muted-text">Filtros opcionales para refinar el PDF: tipo, publicación y fecha.</p>
 
       <div className="table-scroll">
         <table className="data-table">

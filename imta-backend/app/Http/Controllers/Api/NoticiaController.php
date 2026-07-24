@@ -106,7 +106,7 @@ class NoticiaController extends Controller
         }
 
         $this->eliminarFoto($noticia->foto);
-        $noticia->delete();
+        $noticia->forceDelete();
 
         return response()->json(['message' => 'Noticia eliminada de los registros.'], 200);
     }

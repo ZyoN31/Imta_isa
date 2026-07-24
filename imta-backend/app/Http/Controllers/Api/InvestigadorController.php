@@ -73,24 +73,24 @@ class InvestigadorController extends Controller
     public function update(Request $request, Investigador $investigador): JsonResponse
     {
         $user = $investigador->user;
+        $isNewUser = ! $user;
 
         $validated = $request->validate([
             'nivel_academico' => 'required|string|max:100',
             'area_investigacion' => 'required|string|max:150',
             'semblanza' => 'required|string',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:3072',
-            'nombre' => 'sometimes|required|string|max:50',
-            'apellido_paterno' => 'sometimes|required|string|max:50',
+            'nombre' => $isNewUser ? 'required|string|max:50' : 'sometimes|required|string|max:50',
+            'apellido_paterno' => $isNewUser ? 'required|string|max:50' : 'sometimes|required|string|max:50',
             'apellido_materno' => 'nullable|string|max:50',
             'email' => [
-                'sometimes',
-                'required',
+                $isNewUser ? 'required' : 'sometimes',
                 'string',
                 'email',
                 'max:255',
                 Rule::unique('users', 'email')->ignore($user?->id),
             ],
-            'password' => 'nullable|string|min:8|confirmed',
+            'password' => [$isNewUser ? 'required' : 'nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
         if ($request->hasFile('foto')) {
@@ -98,7 +98,7 @@ class InvestigadorController extends Controller
             $validated['foto'] = Storage::url($request->file('foto')->store('investigadores', 'public'));
         }
 
-        DB::transaction(function () use ($investigador, $validated, $user) {
+        DB::transaction(function () use ($investigador, $validated, $user, $isNewUser) {
             $investigador->update([
                 'nivel_academico' => $validated['nivel_academico'],
                 'area_investigacion' => $validated['area_investigacion'],
@@ -129,6 +129,16 @@ class InvestigadorController extends Controller
                     $updates['rol'] = 'investigador';
                     $user->update($updates);
                 }
+            } elseif (! empty($validated['email']) && ! empty($validated['password'])) {
+                User::create([
+                    'nombre' => $validated['nombre'],
+                    'apellido_paterno' => $validated['apellido_paterno'],
+                    'apellido_materno' => $validated['apellido_materno'] ?? null,
+                    'email' => $validated['email'],
+                    'password' => $validated['password'],
+                    'rol' => 'investigador',
+                    'investigador_id' => $investigador->id,
+                ]);
             }
         });
 
@@ -141,8 +151,12 @@ class InvestigadorController extends Controller
     public function destroy(Investigador $investigador): JsonResponse
     {
         $this->eliminarFoto($investigador->foto);
-        $investigador->user()->delete();
-        $investigador->delete();
+
+        if ($investigador->user) {
+            $investigador->user->forceDelete();
+        }
+
+        $investigador->forceDelete();
 
         return response()->json(['message' => 'Investigador eliminado de los registros.'], 200);
     }

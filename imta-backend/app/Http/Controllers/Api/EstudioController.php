@@ -116,7 +116,7 @@ class EstudioController extends Controller
 
         $this->eliminarArchivo($estudio->foto);
         $this->eliminarArchivo($estudio->documento);
-        $estudio->delete();
+        $estudio->forceDelete();
 
         return response()->json(['message' => 'Estudio eliminado de los registros.'], 200);
     }
