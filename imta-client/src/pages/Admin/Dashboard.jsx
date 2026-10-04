@@ -1220,48 +1220,219 @@ export default function Dashboard({ user, onLogout }) {
     </div>
   );
 
-  const renderEstudios = () => (
-    <div className="admin-section">
-      <div className="section-head">
-        <div>
-          <h2>Gestión de estudios</h2>
-          <p>Filtra publicaciones y elimina estudios cuando sea necesario.</p>
+  const renderEstudios = () => {
+    const records = filteredEstudios;
+    const totalStudies = records.length;
+    const studiesByInvestigator = records.reduce((acc, item) => {
+      const key = getDisplayName(item.investigador?.user);
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const areas = records.reduce((acc, item) => {
+      const key = item.investigador?.area_investigacion || 'Sin área';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const withDocuments = records.filter((item) => Boolean(item.documento)).length;
+    const withImages = records.filter((item) => Boolean(item.foto)).length;
+    const topAuthor = Object.entries(studiesByInvestigator).sort((a, b) => b[1] - a[1])[0];
+    const topArea = Object.entries(areas).sort((a, b) => b[1] - a[1])[0];
+
+    return (
+      <div className="admin-section">
+        <div className="section-head">
+          <div>
+            <h2>Gestión y reportes de estudios</h2>
+            <p>Visualiza, filtra, gestiona y genera reportes estadísticos de publicaciones científicas.</p>
+          </div>
+          <button type="button" className="solid-link" onClick={() => buildAdminReport()}>
+            Generar Reporte PDF
+          </button>
         </div>
+
+        <div className="form-grid form-grid--two">
+          <input
+            className="search-input"
+            placeholder="Buscar estudio"
+            value={filters.estudios.search}
+            onChange={(event) => setSectionFilter('estudios', { search: event.target.value })}
+          />
+          <input
+            className="search-input"
+            placeholder="Filtrar por autor"
+            value={filters.estudios.autor}
+            onChange={(event) => setSectionFilter('estudios', { autor: event.target.value })}
+          />
+        </div>
+
+        <div className="form-grid form-grid--two">
+          <input
+            className="search-input"
+            placeholder="Filtrar por categoría"
+            value={filters.estudios.categoria}
+            onChange={(event) => setSectionFilter('estudios', { categoria: event.target.value })}
+          />
+          <div className="form-grid form-grid--two">
+            <div>
+              <label htmlFor="estudios-mes">Mes de publicación</label>
+              <select
+                id="estudios-mes"
+                className="form-select"
+                value={filters.estudios.mes}
+                onChange={(event) => setSectionFilter('estudios', { mes: event.target.value })}
+              >
+                <option value="">Todos los meses</option>
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="estudios-anio">Año de publicación</label>
+              <input
+                id="estudios-anio"
+                className="form-input"
+                type="number"
+                min="2000"
+                placeholder="Año"
+                value={filters.estudios.anio}
+                onChange={(event) => setSectionFilter('estudios', { anio: event.target.value })}
+              />
+            </div>
+          </div>
+        </div>
+
+        <section className="cards-grid">
+          <article className="panel-card">
+            <strong>{totalStudies}</strong>
+            <span>Total de estudios</span>
+          </article>
+          <article className="panel-card">
+            <strong>{topAuthor ? topAuthor[0] : 'Sin datos'}</strong>
+            <span>Autor con más estudios</span>
+          </article>
+          <article className="panel-card">
+            <strong>{topArea ? topArea[0] : 'Sin datos'}</strong>
+            <span>Área con más estudios</span>
+          </article>
+          <article className="panel-card">
+            <strong>{percent(withDocuments, totalStudies)}</strong>
+            <span>Con documento adjunto</span>
+          </article>
+          <article className="panel-card">
+            <strong>{percent(withImages, totalStudies)}</strong>
+            <span>Con imagen publicada</span>
+          </article>
+        </section>
+
         <button type="button" className="solid-link" onClick={() => exportSectionReport('estudios')}>
-          Descargar PDF
+          Descargar PDF simple
         </button>
-      </div>
 
-      <div className="form-grid form-grid--two">
-        <input
-          className="search-input"
-          placeholder="Buscar estudio"
-          value={filters.estudios.search}
-          onChange={(event) => setSectionFilter('estudios', { search: event.target.value })}
-        />
-        <input
-          className="search-input"
-          placeholder="Filtrar por autor"
-          value={filters.estudios.autor}
-          onChange={(event) => setSectionFilter('estudios', { autor: event.target.value })}
-        />
-      </div>
+        <p className="muted-text">Filtros opcionales: autor, categoría y fecha de publicación. "Generar Reporte PDF" crea un análisis detallado.</p>
 
-      <div className="form-grid form-grid--two">
-        <input
-          className="search-input"
-          placeholder="Filtrar por categoría"
-          value={filters.estudios.categoria}
-          onChange={(event) => setSectionFilter('estudios', { categoria: event.target.value })}
-        />
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Autor</th>
+                <th>Categoría</th>
+                <th>Fecha</th>
+                <th>Documento</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEstudios.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.titulo}</td>
+                  <td>{getDisplayName(item.investigador?.user)}</td>
+                  <td>{item.categoria || 'Sin categoría'}</td>
+                  <td>{formatDate(item.created_at || item.updated_at)}</td>
+                  <td>
+                    {item.documento ? (
+                      <a href={resolveBackendUrl(item.documento)} target="_blank" rel="noreferrer">
+                        Descargar
+                      </a>
+                    ) : 'Sin documento'}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={() => handleDelete({ type: 'estudio', id: item.id })}
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderNoticias = () => {
+    const records = filteredNoticias;
+    const totalNews = records.length;
+    const authors = records.reduce((acc, item) => {
+      const key = getDisplayName(item.investigador?.user);
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const topAuthors = Object.entries(authors)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    const withImage = records.filter((item) => Boolean(item.foto)).length;
+    const uniqueAuthors = Object.keys(authors).length;
+
+    return (
+      <div className="admin-section">
+        <div className="section-head">
+          <div>
+            <h2>Gestión y reportes de noticias</h2>
+            <p>Visualiza, filtra, gestiona y genera reportes estadísticos de noticias publicadas.</p>
+          </div>
+          <button type="button" className="solid-link" onClick={() => { setActiveReportTab('noticias'); buildAdminReport(); }}>
+            Generar Reporte PDF
+          </button>
+        </div>
+
+        <div className="form-grid form-grid--two">
+          <input
+            className="search-input"
+            placeholder="Buscar noticia"
+            value={filters.noticias.search}
+            onChange={(event) => setSectionFilter('noticias', { search: event.target.value })}
+          />
+          <input
+            className="search-input"
+            placeholder="Filtrar por autor"
+            value={filters.noticias.autor}
+            onChange={(event) => setSectionFilter('noticias', { autor: event.target.value })}
+          />
+        </div>
+
         <div className="form-grid form-grid--two">
           <div>
-            <label htmlFor="estudios-mes">Mes de publicación</label>
+            <label htmlFor="noticias-mes">Mes de publicación</label>
             <select
-              id="estudios-mes"
+              id="noticias-mes"
               className="form-select"
-              value={filters.estudios.mes}
-              onChange={(event) => setSectionFilter('estudios', { mes: event.target.value })}
+              value={filters.noticias.mes}
+              onChange={(event) => setSectionFilter('noticias', { mes: event.target.value })}
             >
               <option value="">Todos los meses</option>
               <option value="1">Enero</option>
@@ -1279,162 +1450,77 @@ export default function Dashboard({ user, onLogout }) {
             </select>
           </div>
           <div>
-            <label htmlFor="estudios-anio">Año de publicación</label>
+            <label htmlFor="noticias-anio">Año de publicación</label>
             <input
-              id="estudios-anio"
+              id="noticias-anio"
               className="form-input"
               type="number"
               min="2000"
               placeholder="Año"
-              value={filters.estudios.anio}
-              onChange={(event) => setSectionFilter('estudios', { anio: event.target.value })}
+              value={filters.noticias.anio}
+              onChange={(event) => setSectionFilter('noticias', { anio: event.target.value })}
             />
           </div>
         </div>
-      </div>
-      <p className="muted-text">Filtros opcionales para refinar el PDF: autor, categoría y fecha de publicación.</p>
 
-      <div className="table-scroll">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Título</th>
-              <th>Autor</th>
-              <th>Categoría</th>
-              <th>Fecha</th>
-              <th>Documento</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredEstudios.map((item) => (
-              <tr key={item.id}>
-                <td>{item.titulo}</td>
-                <td>{getDisplayName(item.investigador?.user)}</td>
-                <td>{item.categoria || 'Sin categoría'}</td>
-                <td>{formatDate(item.created_at || item.updated_at)}</td>
-                <td>
-                  {item.documento ? (
-                    <a href={resolveBackendUrl(item.documento)} target="_blank" rel="noreferrer">
-                      Descargar
-                    </a>
-                  ) : 'Sin documento'}
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="danger-button"
-                    onClick={() => handleDelete({ type: 'estudio', id: item.id })}
-                  >
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+        <section className="cards-grid">
+          <article className="panel-card">
+            <strong>{totalNews}</strong>
+            <span>Total de noticias</span>
+          </article>
+          <article className="panel-card">
+            <strong>{topAuthors.length > 0 ? topAuthors[0][0] : 'Sin datos'}</strong>
+            <span>Top autor</span>
+          </article>
+          <article className="panel-card">
+            <strong>{percent(withImage, totalNews)}</strong>
+            <span>Noticias con imagen</span>
+          </article>
+          <article className="panel-card">
+            <strong>{uniqueAuthors ? (totalNews / uniqueAuthors).toFixed(1) : '0.0'}</strong>
+            <span>Promedio por investigador</span>
+          </article>
+        </section>
 
-  const renderNoticias = () => (
-    <div className="admin-section">
-      <div className="section-head">
-        <div>
-          <h2>Gestión de noticias</h2>
-          <p>Filtra por autor y fecha de publicación, además de eliminar registros.</p>
-        </div>
         <button type="button" className="solid-link" onClick={() => exportSectionReport('noticias')}>
-          Descargar PDF
+          Descargar PDF simple
         </button>
-      </div>
 
-      <div className="form-grid form-grid--two">
-        <input
-          className="search-input"
-          placeholder="Buscar noticia"
-          value={filters.noticias.search}
-          onChange={(event) => setSectionFilter('noticias', { search: event.target.value })}
-        />
-        <input
-          className="search-input"
-          placeholder="Filtrar por autor"
-          value={filters.noticias.autor}
-          onChange={(event) => setSectionFilter('noticias', { autor: event.target.value })}
-        />
-      </div>
+        <p className="muted-text">Filtros opcionales: autor y fecha de publicación. "Generar Reporte PDF" crea un análisis detallado.</p>
 
-      <div className="form-grid form-grid--two">
-        <div>
-          <label htmlFor="noticias-mes">Mes de publicación</label>
-          <select
-            id="noticias-mes"
-            className="form-select"
-            value={filters.noticias.mes}
-            onChange={(event) => setSectionFilter('noticias', { mes: event.target.value })}
-          >
-            <option value="">Todos los meses</option>
-            <option value="1">Enero</option>
-            <option value="2">Febrero</option>
-            <option value="3">Marzo</option>
-            <option value="4">Abril</option>
-            <option value="5">Mayo</option>
-            <option value="6">Junio</option>
-            <option value="7">Julio</option>
-            <option value="8">Agosto</option>
-            <option value="9">Septiembre</option>
-            <option value="10">Octubre</option>
-            <option value="11">Noviembre</option>
-            <option value="12">Diciembre</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="noticias-anio">Año de publicación</label>
-          <input
-            id="noticias-anio"
-            className="form-input"
-            type="number"
-            min="2000"
-            placeholder="Año"
-            value={filters.noticias.anio}
-            onChange={(event) => setSectionFilter('noticias', { anio: event.target.value })}
-          />
-        </div>
-      </div>
-      <p className="muted-text">Filtros opcionales para refinar el PDF: autor y fecha de publicación.</p>
-
-      <div className="table-scroll">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Título</th>
-              <th>Autor</th>
-              <th>Fecha publicación</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredNoticias.map((item) => (
-              <tr key={item.id}>
-                <td>{item.titulo}</td>
-                <td>{getDisplayName(item.investigador?.user)}</td>
-                <td>{formatDate(item.fecha || item.created_at)}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="danger-button"
-                    onClick={() => handleDelete({ type: 'noticia', id: item.id })}
-                  >
-                    Eliminar
-                  </button>
-                </td>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Autor</th>
+                <th>Fecha publicación</th>
+                <th>Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredNoticias.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.titulo}</td>
+                  <td>{getDisplayName(item.investigador?.user)}</td>
+                  <td>{formatDate(item.fecha || item.created_at)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={() => handleDelete({ type: 'noticia', id: item.id })}
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderComentarios = () => (
     <div className="admin-section">
